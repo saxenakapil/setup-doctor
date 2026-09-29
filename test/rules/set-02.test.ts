@@ -7,7 +7,10 @@ describe('SET-02 Hook points to a missing script', () => {
     const model = await loadFixtureModel('set-02-trigger');
     const findings = set02.run({ model, config });
     expect(findings).toHaveLength(1);
-    expect(findings[0]?.message).toContain('scripts/format.sh');
+    // The resolved path is OS-native (backslashes on Windows), so check the
+    // parts that don't depend on the path separator.
+    expect(findings[0]?.message).toContain('format.sh');
+    expect(findings[0]?.message).toContain('which is missing or not executable');
   });
 
   it('does not trigger for a non-path command', async () => {
