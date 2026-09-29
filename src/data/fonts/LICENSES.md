@@ -2,20 +2,38 @@
 
 All fonts bundled in this package are licensed under the SIL Open Font
 License, Version 1.1, which permits bundling, subsetting and embedding in
-software. See https://openfontlicense.org for the license FAQ.
+software. See https://openfontlicense.org for the license FAQ. The full
+license text is identical for all three fonts and is given once at the
+bottom of this file; each font's own copyright notice is below.
 
-Each font below is subsetted to Basic Latin, digits, punctuation and the
-extra characters the outputs use (`█`, `·`, `/`, `%`, `$`, `*`). See
-docs/themes.md section 5.
+Each font is subsetted to Basic Latin, digits, punctuation and the extra
+characters the outputs use (`█`, `·`, `/`, `%`, `$`, `*`). See docs/themes.md
+section 5.
 
 ## Bricolage Grotesque
+
+Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
 
 Weights bundled: 600 (SemiBold), 800 (ExtraBold).
 Files: `bricolage-grotesque-600.woff2`, `bricolage-grotesque-800.woff2`.
 
-```
-Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
+## Figtree
 
+Copyright 2022 The Figtree Project Authors (https://github.com/erikdkennedy/figtree)
+
+Weights bundled: 400 (Regular), 600 (SemiBold), 700 (Bold).
+Files: `figtree-400.woff2`, `figtree-600.woff2`, `figtree-700.woff2`.
+
+## JetBrains Mono
+
+Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+
+Weights bundled: 400 (Regular), 700 (Bold).
+Files: `jetbrains-mono-400.woff2`, `jetbrains-mono-700.woff2`.
+
+## Full license text (applies to all fonts above)
+
+```
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
 https://openfontlicense.org
@@ -108,11 +126,3 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
-
-## Figtree
-
-Not bundled yet. Needed: weights 400, 600, 700 (docs/themes.md section 5).
-
-## JetBrains Mono
-
-Not bundled yet. Needed: weights 400, 700 (docs/themes.md section 5).
