@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="164" height="20" role="img" aria-label="setup doctor: 88 Good">
+  <title>setup doctor: 88 Good</title>
+  <rect width="98" height="20" fill="#FFE3B3"/>
+  <rect x="98" width="66" height="20" fill="#B5D33D"/>
+  <g font-family="Verdana, Geneva, sans-serif" font-size="11">
+    <text x="49" y="14" fill="#0B0F14" text-anchor="middle">setup doctor</text>
+    <text x="131" y="14" fill="#0B0F14" text-anchor="middle">88 Good</text>
+  </g>
+</svg>

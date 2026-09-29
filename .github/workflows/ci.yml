@@ -24,5 +24,6 @@ jobs:
       - run: npm test
       - run: npm run check:network
       - run: npm run check:version
+      - run: npm run check:em-dash
       - run: npm run build
       - run: npm run smoke:publish

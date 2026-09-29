@@ -41,7 +41,8 @@
     "test": "vitest run",
     "check:network": "node scripts/check-no-network.mjs",
     "check:version": "node scripts/check-version-sync.mjs",
-    "check": "npm run typecheck && npm test && npm run check:network && npm run check:version",
+    "check:em-dash": "node scripts/check-no-em-dash.mjs",
+    "check": "npm run typecheck && npm test && npm run check:network && npm run check:version && npm run check:em-dash",
     "smoke:publish": "node scripts/smoke-publish.mjs",
     "prepublishOnly": "npm run check && npm run build"
   },

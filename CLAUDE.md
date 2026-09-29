@@ -35,7 +35,7 @@ If two documents conflict: `docs/rules.md` wins for rule behavior, `docs/themes.
 npm install          # first time; commit package-lock.json
 npm run typecheck    # tsc --noEmit
 npm test             # vitest
-npm run check        # typecheck + tests + privacy guard + version sync
+npm run check        # typecheck + tests + privacy guard + version sync + em dash guard
 npm run build        # bundles src/bin.ts to dist/bin.js
 ```
 
