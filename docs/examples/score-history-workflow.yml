@@ -1,0 +1,32 @@
+# Example: persist Setup Doctor's local score history
+# (.setupdoctor-history.jsonl) between CI runs, so --compare has something
+# real to compare against instead of only ever seeing "no previous run
+# recorded". Copy this file to .github/workflows/setup-doctor-history.yml.
+#
+# The cache key includes github.run_id, so every run creates a fresh cache
+# entry (a fixed, unchanging key only ever saves once: actions/cache skips
+# the save step entirely on a cache hit, so the history file would silently
+# stop growing after its first run). restore-keys falls back to the most
+# recent entry under the shared prefix so every run still restores the
+# latest history before appending its own line.
+name: setup-doctor score history
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache@v4
+        with:
+          path: .setupdoctor-history.jsonl
+          key: setup-doctor-history-${{ github.repository }}-${{ github.run_id }}
+          restore-keys: setup-doctor-history-${{ github.repository }}-
+      - run: npx setup-doctor@latest doctor --ci --compare

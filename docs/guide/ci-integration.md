@@ -1,6 +1,6 @@
 # CI integration
 
-Two ready-to-use GitHub Actions workflows live in [`docs/examples/`](../examples/), and a real [`.pre-commit-hooks.yaml`](../../.pre-commit-hooks.yaml) manifest lives at the repository root for local pre-commit hooks. All of them just call the same CLI you already use locally; there is nothing CI-specific about `setup-doctor` itself.
+Four ready-to-use GitHub Actions workflows live in [`docs/examples/`](../examples/), and a real [`.pre-commit-hooks.yaml`](../../.pre-commit-hooks.yaml) manifest lives at the repository root for local pre-commit hooks. All of them just call the same CLI you already use locally; there is nothing CI-specific about `setup-doctor` itself.
 
 ## Gate a pull request on score
 
@@ -40,7 +40,7 @@ $ echo $?
 1
 ```
 
-CI runners are ephemeral by default: without persisting `.setupdoctor-history.jsonl` between runs, `--compare` would only ever see "no previous run recorded" and never actually catch anything. Cache it with [`actions/cache`](https://github.com/actions/cache), keyed so a cache miss never blocks the job:
+CI runners are ephemeral by default: without persisting `.setupdoctor-history.jsonl` between runs, `--compare` would only ever see "no previous run recorded" and never actually catch anything. Copy [`docs/examples/score-history-workflow.yml`](../examples/score-history-workflow.yml) to `.github/workflows/setup-doctor-history.yml`, which caches it with [`actions/cache`](https://github.com/actions/cache):
 
 ```yaml
       - uses: actions/checkout@v4
@@ -50,12 +50,79 @@ CI runners are ephemeral by default: without persisting `.setupdoctor-history.js
       - uses: actions/cache@v4
         with:
           path: .setupdoctor-history.jsonl
-          key: setup-doctor-history-${{ github.repository }}
-          restore-keys: setup-doctor-history-
+          key: setup-doctor-history-${{ github.repository }}-${{ github.run_id }}
+          restore-keys: setup-doctor-history-${{ github.repository }}-
       - run: npx setup-doctor@latest doctor --ci --compare
 ```
 
+The cache `key` includes `github.run_id`, not just the repository name: `actions/cache` only ever saves once for a fixed, unchanging key (a cache hit skips the save step entirely, so a fixed key would silently freeze the history at whatever its first run recorded and never actually grow). Every run getting its own key means every run always saves, and `restore-keys` falls back to the most recent entry under the shared prefix so every run still restores the latest history before appending to it. This is a real, previously-shipped-broken pattern, not a hypothetical: it was found while researching the PR-comment workflow below. That workflow ended up not depending on this cache at all, for exactly this staleness reason (see its own notes), but this history feature is real and shipped on its own, so the fix belongs here regardless.
+
 `.setupdoctor-history.jsonl` is in this project's own `.gitignore` and should be in yours too: it is local run history, not something to commit, and `actions/cache` (or your own CI's persistent cache/volume) is what carries it between runs instead.
+
+## Comment on a pull request with the score change
+
+Copy [`docs/examples/pr-comment-workflow.yml`](../examples/pr-comment-workflow.yml) to `.github/workflows/setup-doctor-comment.yml`:
+
+```yaml
+name: setup-doctor PR comment
+
+on:
+  pull_request:
+
+permissions:
+  pull-requests: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Score the base branch
+        run: |
+          git worktree add /tmp/setup-doctor-base ${{ github.event.pull_request.base.sha }}
+          npx --yes setup-doctor@latest doctor /tmp/setup-doctor-base --ci --format json > base-report.json || true
+      - name: Score this pull request
+        run: npx --yes setup-doctor@latest doctor --ci --format json > head-report.json || true
+      - name: Post or update the PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            # see docs/examples/pr-comment-workflow.yml for the real script
+```
+
+This scores both sides directly in the same job, checking out the PR's real base commit into a `git worktree` alongside the already-checked-out PR head, rather than reading back a score cached from some earlier workflow run. Both approaches were considered; the cached-score approach was rejected specifically because of the cache-staleness bug documented above -- scoring both branches fresh in the same job means the comparison is always against the real, current base branch, with nothing to keep in sync and nothing that can go stale.
+
+A real run posts (and, on the next push to the same PR, updates in place rather than duplicating) a comment like this:
+
+```
+### Setup Doctor
+
+Base: **90/100** (Excellent)
+This PR: **89/100** (Good)
+
+**Change: -1**
+
+Findings in this PR: 2 (critical 0, high 1, medium 0, low 1)
+
+<details><summary>Critical and high findings</summary>
+
+- **MCP-01** .mcp.json: MCP server demo uses command does-not-exist-binary which was not found on PATH
+
+</details>
+
+_Updated automatically by [setup-doctor](https://github.com/saxenakapil/setup-doctor) on every push to this PR._
+```
+
+The comment is found and updated in place on every push to the PR (matched by a hidden HTML marker in the comment body), not reposted from scratch, so a long-lived PR does not accumulate a growing pile of stale score comments.
+
+This is informational only: the job never fails on a score drop (that is `setup-doctor gate`'s job, above; combine both if you want a hard gate and a readable summary together). If a branch has nothing for `setup-doctor` to check at all (no supported agent's config found), the comment says so instead of a raw error -- this really happens, for example when the base branch predates any agent config existing, and was verified directly rather than assumed.
+
+**Fork pull requests get a read-only `GITHUB_TOKEN` by default**, regardless of the `permissions:` block above; this is GitHub's own security default for `pull_request`-triggered workflows, not something this workflow can opt out of. The scoring steps still run either way; the comment step is simply skipped for a fork PR rather than failing loudly. If you need this to work for fork PRs too, the standard alternative is `pull_request_target`, which runs with the base repository's own privileges against a PR you do not control -- a real, well-known risk if that job does anything beyond scoring and commenting (for example, if it were changed to run a script from the PR's own files). Not switched to by default here for that reason.
 
 ## Publish a live badge from your own CI
 

@@ -1,0 +1,116 @@
+# Example: comment on a pull request with the Setup Doctor score change
+# (base branch vs. this PR), updating the same comment on every push instead
+# of posting a new one. Copy this file to
+# .github/workflows/setup-doctor-comment.yml in the repo you want it on.
+#
+# Scores both sides directly in this job (a worktree checkout of the PR's
+# base commit, alongside the already-checked-out PR head) rather than
+# reading back a cached score from a separate workflow run, so the
+# comparison is always against the real, current base branch, never a stale
+# cached snapshot.
+#
+# Requires `pull-requests: write` to post/update the comment, which the
+# default GITHUB_TOKEN only gets for pull requests from branches in this
+# same repository. A pull request from a fork gets a read-only token
+# regardless of the permissions below (GitHub's own security default); the
+# job's scoring steps still run, but the comment step is skipped rather than
+# failing loudly. If you need this for fork PRs too, switch the trigger to
+# `pull_request_target` and be deliberate about what else that job does: it
+# runs with base-repo privileges against a PR you do not control, so keep it
+# limited to exactly this (scoring and commenting), the same caution any
+# `pull_request_target` workflow needs.
+name: setup-doctor PR comment
+
+on:
+  pull_request:
+
+permissions:
+  pull-requests: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Score the base branch
+        run: |
+          git worktree add /tmp/setup-doctor-base ${{ github.event.pull_request.base.sha }}
+          npx --yes setup-doctor@latest doctor /tmp/setup-doctor-base --ci --format json > base-report.json || true
+      - name: Score this pull request
+        run: npx --yes setup-doctor@latest doctor --ci --format json > head-report.json || true
+      - name: Post or update the PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- setup-doctor-pr-comment -->';
+
+            function readReport(path) {
+              try {
+                return JSON.parse(fs.readFileSync(path, 'utf8'));
+              } catch {
+                return null; // e.g. "Nothing to check" (plain text, not JSON) or a read failure
+              }
+            }
+
+            const base = readReport('base-report.json');
+            const head = readReport('head-report.json');
+
+            function scoreLine(label, report) {
+              if (!report || report.score === null || report.score === undefined) return `${label}: nothing to check`;
+              return `${label}: **${report.score}/100** (${report.band})`;
+            }
+
+            const lines = [MARKER, '### Setup Doctor', ''];
+            lines.push(scoreLine('Base', base), scoreLine('This PR', head));
+
+            if (base?.score != null && head?.score != null) {
+              const delta = head.score - base.score;
+              const sign = delta > 0 ? '+' : '';
+              lines.push('', `**Change: ${sign}${delta}**`);
+            }
+
+            const findings = head?.findings ?? [];
+            const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
+            for (const f of findings) if (f.severity in bySeverity) bySeverity[f.severity]++;
+            lines.push('', `Findings in this PR: ${findings.length} (critical ${bySeverity.critical}, high ${bySeverity.high}, medium ${bySeverity.medium}, low ${bySeverity.low})`);
+
+            const topFindings = findings
+              .filter((f) => f.severity === 'critical' || f.severity === 'high')
+              .slice(0, 5);
+            if (topFindings.length > 0) {
+              lines.push('', '<details><summary>Critical and high findings</summary>', '');
+              for (const f of topFindings) lines.push(`- **${f.ruleId}** ${f.file ?? ''}: ${f.message}`);
+              lines.push('', '</details>');
+            }
+
+            lines.push('', '_Updated automatically by [setup-doctor](https://github.com/saxenakapil/setup-doctor) on every push to this PR._');
+            const body = lines.join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body?.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
