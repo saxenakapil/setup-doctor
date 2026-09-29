@@ -111,6 +111,12 @@ describe('renderHtmlReport', () => {
     expect(html).not.toContain('<script>alert(2)</script>');
   });
 
+  it('gives the category bar fill an explicit block display (regression: a bare <span> ignores width/height and renders as a flat, unfilled track)', () => {
+    const html = renderHtmlReport(baseInput('playful'));
+    expect(html).toMatch(/\.bar-fill\s*\{[^}]*display:\s*block/);
+    expect(html).toContain('<span class="bar-fill" style="width:73%">');
+  });
+
   it('hides a non-applicable category row entirely', () => {
     const html = renderHtmlReport(baseInput('playful'));
     expect(html).not.toContain('Plugins  0/10');

@@ -72,6 +72,19 @@ describe.each([
     expect(svg.replace('http://www.w3.org/2000/svg', '')).not.toMatch(/https?:\/\//);
   });
 
+  it('shrinks the title font-size to fit a long --period range label instead of clipping it (regression)', () => {
+    const shortSvg = render(baseInput('technical'));
+    const longInput = { ...baseInput('technical'), periodLabel: '2020-01-01 to 2026-09-29' };
+    const longSvg = render(longInput);
+    const titleSize = (svg: string) => Number(/font-size="(\d+)" font-weight="800"[^>]*>Your last/.exec(svg)?.[1]);
+    const shortSize = titleSize(shortSvg);
+    const longSize = titleSize(longSvg);
+    expect(Number.isFinite(shortSize)).toBe(true);
+    expect(Number.isFinite(longSize)).toBe(true);
+    expect(longSize).toBeLessThan(shortSize);
+    expect(longSvg).toContain('2020-01-01 to 2026-09-29 with Claude Code');
+  });
+
   it('renders the activity strip only for technical and mix (docs/themes.md section 4)', () => {
     const playfulSvg = render(baseInput('playful'));
     const technicalSvg = render(baseInput('technical'));

@@ -75,7 +75,7 @@ function renderStyles(theme: Theme): string {
     .category-row { display: flex; align-items: center; gap: 12px; margin: 10px 0; font-size: 14px; }
     .category-name { width: 160px; flex-shrink: 0; }
     .bar-track { flex: 1; height: 10px; background: ${c.track}; border-radius: ${theme.radius.pill}px; overflow: hidden; }
-    .bar-fill { height: 100%; background: ${c.accent}; }
+    .bar-fill { display: block; height: 100%; background: ${c.accent}; }
     .category-score { width: 70px; text-align: right; color: ${c.muted}; }
     .finding-card {
       border: ${theme.cardBorder}; border-radius: ${theme.radius.card}px; padding: 14px 16px; margin-bottom: 12px;

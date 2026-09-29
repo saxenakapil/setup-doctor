@@ -19,6 +19,25 @@ function formatCost(costUsd: number | null): string {
   return `$${costUsd < 0.01 && costUsd > 0 ? costUsd.toFixed(4) : costUsd.toFixed(2)}`;
 }
 
+// There is no text-measurement API available for a static SVG string built
+// from template literals (no dependency is allowed to do real font
+// shaping), so width is estimated from character count times an
+// average-advance-width-per-em figure for the font family in use. This is
+// deliberately conservative (a slight underestimate of size beats an
+// overflowing, clipped title): monospace glyphs are all one fixed width,
+// bold proportional glyphs average narrower. Custom --period ranges (e.g.
+// "2026-01-01 to 2026-03-15 with Claude Code") make the title long enough
+// that a fixed font-size clips behind the persona tile without this.
+const MONO_AVG_ADVANCE_EM = 0.62;
+const DISPLAY_AVG_ADVANCE_EM = 0.58;
+
+function fitTitleFontSize(text: string, maxWidth: number, baseFontSize: number, isMono: boolean, minFontSize: number): number {
+  const advance = isMono ? MONO_AVG_ADVANCE_EM : DISPLAY_AVG_ADVANCE_EM;
+  const estimatedWidth = text.length * advance * baseFontSize;
+  if (estimatedWidth <= maxWidth) return baseFontSize;
+  return Math.max(minFontSize, Math.floor(maxWidth / (text.length * advance)));
+}
+
 export interface CardInput {
   theme: Theme;
   periodLabel: string;
@@ -166,12 +185,16 @@ export function renderLandscapeCardSvg(input: CardInput): string {
     ? renderStatList(theme, input, leftX, 220)
     : renderStatTiles(theme, buildStatTiles(input), leftX, 190, 220, 110, 16);
 
+  const titleText = `Your last ${input.periodLabel} with Claude Code`;
+  const titleMaxWidth = rightX - leftX - 24;
+  const titleFontSize = fitTitleFontSize(titleText, titleMaxWidth, 46, theme.name === 'technical', 24);
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img">
 ${renderTitleDesc(input)}
 <style>${embeddedFontFaceCss()}</style>
 <rect width="${W}" height="${H}" fill="${bg}"/>
 <text x="${leftX}" y="56" font-family="${theme.fonts.mono}" font-size="16" letter-spacing="1" fill="${theme.colors.ink}">${escapeXml(eyebrowText(theme, input))}</text>
-<text x="${leftX}" y="130" font-family="${theme.fonts.display}" font-size="46" font-weight="800" fill="${theme.colors.ink}">${escapeXml(`Your last ${input.periodLabel} with Claude Code`)}</text>
+<text x="${leftX}" y="130" font-family="${theme.fonts.display}" font-size="${titleFontSize}" font-weight="800" fill="${theme.colors.ink}">${escapeXml(titleText)}</text>
 ${statsBlock}
 ${renderCostFootnote(theme, leftX, theme.name === 'technical' ? 420 : 340)}
 ${theme.activityStrip ? renderActivityStrip(theme, input.activity, leftX, theme.name === 'technical' ? 450 : 370, W - rightColW - leftX - 48) : ''}
@@ -203,15 +226,19 @@ export function renderPortraitCardSvg(input: CardInput): string {
     ? renderStatList(theme, input, x, 260)
     : renderStatTiles(theme, buildStatTiles(input), x, 230, (W - 2 * x - 16) / 2, 120, 16);
 
+  const titleText = `Your last ${input.periodLabel} with Claude Code`;
+  const titleMaxWidth = W - 2 * x;
+  const titleFontSize = fitTitleFontSize(titleText, titleMaxWidth, 52, theme.name === 'technical', 26);
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img">
 ${renderTitleDesc(input)}
 <style>${embeddedFontFaceCss()}</style>
 <rect width="${W}" height="${H}" fill="${bg}"/>
 <text x="${x}" y="70" font-family="${theme.fonts.mono}" font-size="18" letter-spacing="1" fill="${theme.colors.ink}">${escapeXml(eyebrowText(theme, input))}</text>
-<text x="${x}" y="160" font-family="${theme.fonts.display}" font-size="52" font-weight="800" fill="${theme.colors.ink}">${escapeXml(`Your last ${input.periodLabel} with Claude Code`)}</text>
+<text x="${x}" y="160" font-family="${theme.fonts.display}" font-size="${titleFontSize}" font-weight="800" fill="${theme.colors.ink}">${escapeXml(titleText)}</text>
 ${statsBlock}
-${renderCostFootnote(theme, x, 490)}
-${theme.activityStrip ? renderActivityStrip(theme, input.activity, x, 530, W - 2 * x) : ''}
+${renderCostFootnote(theme, x, 516)}
+${theme.activityStrip ? renderActivityStrip(theme, input.activity, x, 550, W - 2 * x) : ''}
 ${input.showProjects ? renderProjectsList(theme, input.topProjects, x, 590) : ''}
 ${renderPersonaTile(theme, input, x, 780, W - 2 * x, 160)}
 <g transform="translate(${x},980)">
