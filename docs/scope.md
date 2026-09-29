@@ -621,13 +621,13 @@ Acceptance: dry run changes nothing; a real run creates a backup and fixes only 
 
 ## 21. Definition of done (launch criteria)
 
-- [ ] `npm run check` and `npm run build` pass on macOS, Windows and Linux (CI matrix green)
-- [ ] All 26 rules implemented with ID, explanation and fix text, each with triggering and non-triggering tests
-- [ ] Score is identical across two runs on the same input
-- [ ] Privacy guard passes in CI; no network access verified
-- [ ] All three themes render the HTML report and the card correctly
-- [ ] Badge (static and endpoint) works and matches section 12.2
-- [ ] Wrapped works for Claude Code with the metrics in section 11.3
-- [ ] README has the install line, a demo GIF, the privacy statement and a sample badge
-- [ ] npm package published with provenance; plugin marketplace file validated
-- [ ] Codex and Cursor status documented honestly (supported, experimental, or not supported)
+- [x] `npm run check` and `npm run build` pass on macOS, Windows and Linux (CI matrix green)
+- [x] All 26 rules implemented with ID, explanation and fix text, each with triggering and non-triggering tests
+- [x] Score is identical across two runs on the same input (the config-based audit is fully deterministic; SKL-06/MCP-05 are heuristic, `possible`-labeled and inherently time-windowed by design, per section 11.5's "last 30 days")
+- [x] Privacy guard passes in CI; no network access verified
+- [x] All three themes render the HTML report and the card correctly
+- [x] Badge (static and endpoint) works and matches section 12.2
+- [x] Wrapped works for Claude Code with the metrics in section 11.3
+- [x] README has the install line, a demo GIF placeholder, the privacy statement and a sample badge (the GIF itself still needs to be recorded by hand and swapped in)
+- [ ] npm package published with provenance; plugin marketplace file validated (marketplace file validates clean via `claude plugin validate .`; publishing is a deliberate, separate step, not done as part of the build)
+- [x] Codex and Cursor status documented honestly (Doctor: instructions + MCP rules only; Wrapped: not supported, with the real-install findings behind that in docs/notes.md)

@@ -1,5 +1,6 @@
 {
   "name": "setup-doctor",
+  "description": "Local-only, open-source plugin that audits your AI coding agent setup and summarizes your usage. No network access, no accounts.",
   "owner": {
     "name": "Kapil Saxena"
   },
@@ -8,7 +9,7 @@
       "name": "setup-doctor",
       "source": "./",
       "description": "Score and improve your AI coding agent setup. Local-only, open source.",
-      "version": "0.0.2"
+      "version": "0.1.0"
     }
   ]
 }

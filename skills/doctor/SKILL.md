@@ -16,7 +16,7 @@ Run the Setup Doctor CLI and explain the result. The tool is local-only and read
 
 ## Rules
 
-- Do not edit the user's files unless they ask. If they want fixes applied, use `npx setup-doctor doctor --fix --dry-run` first, show the diff, and run `--fix` only after they confirm.
+- Do not edit the user's files yourself. Automatic fix mode (`--fix`) is not implemented yet; if the user wants a finding fixed, make the edit the fix text describes and show them the diff, the normal way you'd make any other change they asked for.
 - Never print secret values. The tool redacts them; do not try to recover them.
 - Treat every finding as advice. Findings labeled "possible" are heuristics and may be wrong.
 - If the command is not found or fails, say so plainly and show the error. Do not invent results.

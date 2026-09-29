@@ -1,0 +1,17 @@
+# Example: fail a pull request when the Setup Doctor score drops below a
+# threshold. Copy this file to .github/workflows/setup-doctor-gate.yml in
+# the repo you want to gate. Adjust --fail-under to taste.
+name: setup-doctor gate
+
+on:
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx setup-doctor@latest doctor --ci --fail-under 75
