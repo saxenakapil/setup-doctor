@@ -14,6 +14,16 @@
 // dedupSharedAcrossAgents's "same file -> same fields" merge assumption
 // safe when both agents are detected in one project.
 //
+// Hooks are different: Copilot CLI also has its own native hook format
+// (.github/hooks/*.json project-level, ~/.copilot/hooks/*.json
+// user-level), separate from and combined with (not superseded by) the
+// shared .claude/settings.json hooks above -- GitHub's own docs: "hooks
+// are loaded from [every source] ... and combined. When the same event
+// appears in multiple sources, all hook entries from all sources are
+// run." See readCopilotHooksDir below; this is why readSettings reads
+// four sources, not two. Source:
+// https://docs.github.com/en/copilot/reference/hooks-reference
+//
 // Not covered (documented gaps, not oversights):
 // - .github/instructions/*.instructions.md's `applyTo` glob is not modeled
 //   (InstructionFile has no path-scoping field); each file is still audited
@@ -29,6 +39,12 @@
 // - ~/.copilot/permissions-config.json is not parsed: its own docs say it
 //   does not support deny/ask rules or default modes, so there is little
 //   of the risky-permission signal SET-01 looks for to extract from it.
+// - Native hooks with `type: "http"` (calls a URL) or `"prompt"` (shows a
+//   message) are read but produce no HookDef: neither has a shell command
+//   or script path, so SET-02 (missing script) cannot say anything useful
+//   about them. Flagging an http hook as its own risky-permission-style
+//   signal is the same backlog item as "hooks that shell out to network
+//   tools" already tracked in docs/notes.md, not a gap specific to Copilot.
 // - readSessions always yields nothing. Copilot CLI's session log
 //   (~/.copilot/session-state/<id>/events.jsonl) is, unusually, a
 //   documented plain JSONL format rather than an opaque SQLite file like
@@ -42,7 +58,7 @@ import { extractInlineCodePaths, extractScriptCommands } from '../core/text.js';
 import { toDisplayPath } from './display-path.js';
 import { isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
 import { parseMcpJsonFile } from './mcp-json-shape.js';
-import { readClaudeSettingsFile } from './claude-settings-shape.js';
+import { computeHookScriptCheck, readClaudeSettingsFile } from './claude-settings-shape.js';
 import { collectSkillFolders } from './skill-shape.js';
 import type {
   Adapter,
@@ -206,8 +222,95 @@ async function readPlugins(): Promise<AdapterResult<PluginInfo>> {
 }
 
 // ---- Settings: hooks and permissions ----
-// .claude/settings.json / settings.local.json only; see the file header for
-// why ~/.copilot/permissions-config.json is not parsed.
+// Four sources: the two shared .claude/settings*.json files (see the file
+// header), plus Copilot's own native hook format at .github/hooks/*.json
+// (project) and ~/.copilot/hooks/*.json (global/personal). See
+// ~/.copilot/permissions-config.json's own non-coverage note in the file
+// header for permissions specifically.
+
+interface RawCopilotHook {
+  type?: 'command' | 'http' | 'prompt';
+  bash?: string;
+  powershell?: string;
+  command?: string;
+  exec?: string;
+  args?: string[];
+}
+
+// Picks the command that would actually run on this host's platform. A
+// hook definition may carry both bash and powershell variants for
+// cross-platform use; only one is real here. `type: 'http'` and `'prompt'`
+// hooks have no shell command at all (no script to existence-check), so
+// they yield no command and are skipped by the caller -- flagging a
+// network-calling or prompt-only hook as its own signal is a documented
+// backlog item (docs/notes.md), not something SET-02 (missing script) can
+// meaningfully say anything about.
+function deriveCopilotHookCommand(raw: RawCopilotHook): string | undefined {
+  if (raw.type && raw.type !== 'command') return undefined;
+  if (process.platform === 'win32' && raw.powershell) return raw.powershell;
+  if (raw.bash) return raw.bash;
+  if (raw.command) return raw.command;
+  if (raw.exec) return [raw.exec, ...(raw.args ?? [])].join(' ');
+  return raw.powershell;
+}
+
+async function readCopilotHooksFile(
+  filePath: string,
+  scopeVal: Scope,
+  ctx: DiscoveryContext,
+  items: (HookDef | PermissionRule)[],
+  skipped: Skipped[],
+  warnings: string[],
+): Promise<void> {
+  const read = await readTextFileSafe(filePath);
+  if (!read.ok) {
+    if (read.reason !== 'not found') skipped.push({ path: toDisplayPath(filePath, ctx), reason: read.reason });
+    return;
+  }
+  const displayPath = toDisplayPath(filePath, ctx);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(read.text);
+  } catch (err) {
+    warnings.push(`${displayPath}: invalid JSON (${(err as Error).message})`);
+    return;
+  }
+  const hooksObj = (parsed && typeof parsed === 'object' ? parsed : {} as Record<string, unknown>) as Record<string, unknown>;
+  const events = hooksObj.hooks;
+  if (!events || typeof events !== 'object') return;
+
+  for (const [event, list] of Object.entries(events as Record<string, unknown>)) {
+    if (!Array.isArray(list)) continue;
+    for (const raw of list) {
+      if (!raw || typeof raw !== 'object') continue;
+      const command = deriveCopilotHookCommand(raw as RawCopilotHook);
+      if (!command) continue;
+      items.push({
+        agent: 'copilot',
+        scope: scopeVal,
+        sourcePath: displayPath,
+        event,
+        command,
+        scriptCheck: await computeHookScriptCheck(command, ctx),
+      });
+    }
+  }
+}
+
+async function readCopilotHooksDir(
+  dirPath: string,
+  scopeVal: Scope,
+  ctx: DiscoveryContext,
+  items: (HookDef | PermissionRule)[],
+  skipped: Skipped[],
+  warnings: string[],
+): Promise<void> {
+  if (!(await isDirectory(dirPath))) return;
+  for (const entry of (await listDirSafe(dirPath)).sort()) {
+    if (!entry.endsWith('.json')) continue;
+    await readCopilotHooksFile(join(dirPath, entry), scopeVal, ctx, items, skipped, warnings);
+  }
+}
 
 async function readSettings(ctx: DiscoveryContext): Promise<AdapterResult<HookDef | PermissionRule>> {
   const items: (HookDef | PermissionRule)[] = [];
@@ -217,6 +320,10 @@ async function readSettings(ctx: DiscoveryContext): Promise<AdapterResult<HookDe
   if (includesScope(ctx, 'project')) {
     await readClaudeSettingsFile(join(ctx.projectRoot, '.claude', 'settings.json'), 'project', 'copilot', ctx, items, skipped, warnings);
     await readClaudeSettingsFile(join(ctx.projectRoot, '.claude', 'settings.local.json'), 'project', 'copilot', ctx, items, skipped, warnings);
+    await readCopilotHooksDir(join(ctx.projectRoot, '.github', 'hooks'), 'project', ctx, items, skipped, warnings);
+  }
+  if (includesScope(ctx, 'global')) {
+    await readCopilotHooksDir(join(ctx.homeDir, '.copilot', 'hooks'), 'global', ctx, items, skipped, warnings);
   }
 
   return { items, skipped, warnings };
@@ -236,6 +343,7 @@ async function detect(ctx: DiscoveryContext): Promise<boolean> {
     join(ctx.projectRoot, '.github', 'skills'),
     join(ctx.projectRoot, '.github', 'agents'),
     join(ctx.projectRoot, '.github', 'prompts'),
+    join(ctx.projectRoot, '.github', 'hooks'),
     join(ctx.projectRoot, '.vscode', 'mcp.json'),
   ];
   for (const c of projectCandidates) {

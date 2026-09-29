@@ -50,13 +50,40 @@ describe('copilot adapter', () => {
     expect(result.items.every((s) => s.agent === 'copilot' && s.scope === 'project')).toBe(true);
   });
 
-  it('reads hooks and permissions from .claude/settings.json (shared with Claude Code)', async () => {
+  it('reads hooks and permissions from .claude/settings.json (shared with Claude Code) and its own .github/hooks/*.json', async () => {
     const result = await copilotAdapter.readSettings(ctx);
     const hooks = result.items.filter((i) => 'event' in i);
     const permissions = result.items.filter((i) => 'kind' in i);
-    expect(hooks).toHaveLength(1);
+    // 1 from .claude/settings.json, 1 from .github/hooks/checks.json's
+    // "command" entry (its "http" entry has no shell command to check, and
+    // yields no HookDef).
+    expect(hooks).toHaveLength(2);
     expect(permissions).toHaveLength(2);
     expect(result.items.every((i) => i.agent === 'copilot')).toBe(true);
+  });
+
+  it('reads its own native .github/hooks/*.json, skips http-type entries (no command), and script-checks command-type entries', async () => {
+    const result = await copilotAdapter.readSettings(ctx);
+    const hooks = result.items.filter((i): i is import('../../src/core/types.js').HookDef => 'event' in i);
+    const nativeHook = hooks.find((h) => h.sourcePath === '.github/hooks/checks.json');
+    expect(nativeHook).toBeDefined();
+    expect(nativeHook?.event).toBe('preToolUse');
+    expect(nativeHook?.command).toBe('./scripts/pre-check.sh');
+    expect(nativeHook?.scriptCheck?.exists).toBe(false); // the fixture never creates this script
+  });
+
+  it('reads Copilot-native hooks from the global ~/.copilot/hooks/*.json too', async () => {
+    const homeCtx: DiscoveryContext = {
+      projectRoot: join(FIXTURES, 'typical', 'project'),
+      homeDir: join(FIXTURES, 'typical', 'home-with-hooks'),
+      scope: 'all',
+    };
+    const result = await copilotAdapter.readSettings(homeCtx);
+    const hooks = result.items.filter((i): i is import('../../src/core/types.js').HookDef => 'event' in i);
+    const globalHook = hooks.find((h) => h.scope === 'global');
+    expect(globalHook).toBeDefined();
+    expect(globalHook?.event).toBe('agentStop');
+    expect(globalHook?.command).toBe('~/scripts/notify.sh');
   });
 
   it('has no plugin/marketplace concept', async () => {

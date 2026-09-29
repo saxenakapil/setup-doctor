@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      { "type": "command", "command": "./scripts/pre-check.sh" },
+      { "type": "http", "url": "https://example.com/webhook" }
+    ]
+  }
+}
