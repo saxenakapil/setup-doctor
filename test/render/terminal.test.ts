@@ -38,11 +38,31 @@ describe('renderTerminalReport', () => {
 
     expect(text).toContain('Setup Doctor  score 79/100  (Good)   rules v1.0.0');
     expect(text).toContain('Instruction files  22/30');
+    expect(text).not.toContain('\u001b[');
     expect(text).toContain('Skills  20/25');
     expect(text).toContain('Always-loaded context: about 6,400 tokens');
     expect(text).toContain('HIGH  INS-02  CLAUDE.md is about 5,800 tokens (limit 5,000)');
     expect(text).toContain('Fix: move rarely needed sections into skill files.');
     expect(text).toContain('1 finding');
+  });
+
+  it('emits ANSI codes only when useColor is true, and the plain text is unchanged either way', () => {
+    const input = {
+      score: 79,
+      band: 'Good',
+      capped: false,
+      categories: CATEGORIES,
+      rulesVersion: '1.0.0',
+      overheadTokens: 6400,
+      findings: [FINDING],
+      suppressedCount: 0,
+      skipped: [],
+    };
+    const plain = renderTerminalReport(input);
+    const colored = renderTerminalReport({ ...input, useColor: true });
+
+    expect(colored).toContain('\u001b[');
+    expect(colored.replace(/\u001b\[[0-9;]*m/g, '')).toBe(plain);
   });
 
   it('marks a non-applicable category as n/a instead of a fake score', () => {

@@ -158,6 +158,44 @@ describe('cli doctor (deterministic fixture home and project)', () => {
     }
   });
 
+  it('the terminal report has no color by default (not a TTY under vitest)', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const c = capture();
+    const code = await main([emptyProject], c.io, homeDir);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).not.toContain('\u001b[');
+  });
+
+  it('emits color when stdout is a TTY, and --no-color turns it back off', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const wasTTY = process.stdout.isTTY;
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    try {
+      const withColor = capture();
+      expect(await main([emptyProject], withColor.io, homeDir)).toBe(0);
+      expect(withColor.out.join('\n')).toContain('\u001b[');
+
+      const withoutColor = capture();
+      expect(await main([emptyProject, '--no-color'], withoutColor.io, homeDir)).toBe(0);
+      expect(withoutColor.out.join('\n')).not.toContain('\u001b[');
+    } finally {
+      Object.defineProperty(process.stdout, 'isTTY', { value: wasTTY, configurable: true });
+    }
+  });
+
+  it('--ci implies no color even on a TTY', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const wasTTY = process.stdout.isTTY;
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    try {
+      const c = capture();
+      expect(await main([emptyProject, '--ci'], c.io, homeDir)).toBe(0);
+      expect(c.out.join('\n')).not.toContain('\u001b[');
+    } finally {
+      Object.defineProperty(process.stdout, 'isTTY', { value: wasTTY, configurable: true });
+    }
+  });
+
   it('--min-severity hides low findings from the terminal report without changing the score', async () => {
     writeFileSync(
       join(emptyProject, 'CLAUDE.md'),

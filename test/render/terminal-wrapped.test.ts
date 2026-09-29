@@ -49,9 +49,25 @@ describe('renderWrappedTerminalReport', () => {
     });
     expect(text).toContain('Sessions 5');
     expect(text).toContain('Active days 4');
-    expect(text).toContain('Persona: Steady Builder — Steady, consistent use.');
+    expect(text).toContain('Persona: Steady Builder. Steady, consistent use.');
     expect(text).toContain('API-equivalent estimate, not your bill');
     expect(text).toContain('my-project');
+  });
+
+  it('emits ANSI codes only when useColor is true, and the plain text is unchanged either way', () => {
+    const input = {
+      periodLabel: '30 days',
+      metrics: baseMetrics(),
+      persona: PERSONA,
+      showCost: true,
+      showProjects: true,
+      priceTableAsOf: '2026-09-29',
+    };
+    const plain = renderWrappedTerminalReport(input);
+    const colored = renderWrappedTerminalReport({ ...input, useColor: true });
+
+    expect(colored).toContain('\u001b[');
+    expect(colored.replace(/\u001b\[[0-9;]*m/g, '')).toBe(plain);
   });
 
   it('omits cost entirely when showCost is false', () => {

@@ -6,6 +6,7 @@ import { applyFixes, backupFiles, planFixes } from './core/fix.js';
 import type { Agent, Scope, Severity } from './core/types.js';
 import { ALL_RULES, getRule } from './rules/index.js';
 import { renderTerminalReport } from './render/terminal.js';
+import { shouldUseColor } from './render/ansi.js';
 import { renderHtmlReport } from './render/html.js';
 import { renderJsonReport } from './render/json.js';
 import { renderBadgeSvg, renderEndpointBadgeJson, renderMarkdownSnippet } from './render/badge.js';
@@ -55,6 +56,7 @@ Options:
   --out <path> Output folder (doctor --format html/json with --out, badge)
   --yes        Overwrite existing output files without asking
   --endpoint   Also write the shields.io endpoint JSON (badge)
+  --no-color   Disable ANSI color (also off for --ci, NO_COLOR, or a non-TTY output)
   --ci         No prompts, stable output (doctor)
   --fail-under <n>   With --ci, exit 1 if the score is below n (doctor)
   --period     7d | 30d | ytd | all | YYYY-MM-DD:YYYY-MM-DD (wrapped, default 30d)
@@ -153,6 +155,16 @@ function parseCommonFlags(flags: Record<string, string | boolean>, io: Io): Comm
 function filterByMinSeverity<T extends { severity: Severity }>(items: T[], min: Severity): T[] {
   const minRank = SEVERITY_RANK[min];
   return items.filter((f) => SEVERITY_RANK[f.severity] >= minRank);
+}
+
+/** --ci implies --no-color (scope.md section 6.2: --ci is "no prompts, no color, stable output"). */
+function computeUseColor(flags: Record<string, string | boolean>, ci: boolean): boolean {
+  return shouldUseColor({
+    noColorFlag: flags['no-color'] === true,
+    ciFlag: ci,
+    env: process.env,
+    isTTY: process.stdout.isTTY === true,
+  });
 }
 
 async function runFixFlow(
@@ -293,6 +305,7 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
           findings: displayedFindings,
           suppressedCount: report.suppressed.length,
           skipped: report.skipped,
+          useColor: computeUseColor(flags, ci),
         }),
       );
     } else {
@@ -456,6 +469,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
           showCost,
           showProjects: true, // already filtered into localProjects above
           priceTableAsOf: PRICE_TABLE_AS_OF,
+          useColor: computeUseColor(flags, false),
         }),
       );
     }

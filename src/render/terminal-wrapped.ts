@@ -3,6 +3,7 @@
 
 import type { WrappedMetrics } from '../wrapped/metrics.js';
 import type { Persona } from '../wrapped/persona.js';
+import { getAnsi } from './ansi.js';
 
 function formatNumber(n: number): string {
   return Math.round(n).toLocaleString('en-US');
@@ -23,17 +24,20 @@ export interface WrappedTerminalInput {
   showCost: boolean;
   showProjects: boolean;
   priceTableAsOf: string;
+  /** Defaults to no color; pass true only after checking shouldUseColor. */
+  useColor?: boolean;
 }
 
 export function renderWrappedTerminalReport(input: WrappedTerminalInput): string {
   const { metrics } = input;
+  const ansi = getAnsi(input.useColor ?? false);
 
   if (metrics.recordCount === 0) {
     return `Setup Doctor Wrapped  ${input.periodLabel}\n\nNo sessions in this period. Try a wider --period, for example --period 30d or --period all.`;
   }
 
   const lines: string[] = [];
-  lines.push(`Setup Doctor Wrapped  ${input.periodLabel}`);
+  lines.push(ansi.bold(`Setup Doctor Wrapped  ${input.periodLabel}`));
   lines.push('');
 
   const headline = [
@@ -65,7 +69,7 @@ export function renderWrappedTerminalReport(input: WrappedTerminalInput): string
   }
   lines.push('');
 
-  lines.push(`Persona: ${input.persona.label} — ${input.persona.line}`);
+  lines.push(`Persona: ${ansi.cyan(input.persona.label)}. ${input.persona.line}`);
   lines.push('');
 
   if (input.showCost) {

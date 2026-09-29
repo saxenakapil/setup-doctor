@@ -142,7 +142,7 @@ function renderProjectsList(theme: Theme, projects: { project: string; tokens: n
   return projects
     .map(
       (p, i) =>
-        `<text x="${x}" y="${y + i * 20}" font-family="${theme.fonts.mono}" font-size="12" fill="${theme.colors.muted}">${escapeXml(p.project)} — ${formatNumber(p.tokens)} tok</text>`,
+        `<text x="${x}" y="${y + i * 20}" font-family="${theme.fonts.mono}" font-size="12" fill="${theme.colors.muted}">${escapeXml(p.project)}, ${formatNumber(p.tokens)} tok</text>`,
     )
     .join('');
 }

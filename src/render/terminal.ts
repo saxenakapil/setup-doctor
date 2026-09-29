@@ -1,8 +1,10 @@
-// Terminal report. See docs/scope.md section 12.1. Not themed; NO_COLOR /
-// non-TTY handling and ANSI color are added when the tech-stack calls for it.
+// Terminal report. See docs/scope.md section 12.1. Not themed. Color is
+// opt-in via TerminalReportInput.ansi (see src/render/ansi.ts); the caller
+// decides NO_COLOR / non-TTY / --ci, this module just applies the result.
 
 import type { CategoryScore } from '../core/scoring.js';
 import type { Category, Finding, Severity, Skipped } from '../core/types.js';
+import { getAnsi, type Ansi } from './ansi.js';
 
 const CATEGORY_LABELS: Record<Category, string> = {
   instructions: 'Instruction files',
@@ -27,12 +29,20 @@ function formatNumber(n: number): string {
   return n.toLocaleString('en-US');
 }
 
-function renderScoreLine(score: number | null, band: string | null, capped: boolean, rulesVersion: string): string {
+function colorForScore(score: number, ansi: Ansi): Ansi['green'] {
+  if (score >= 90) return ansi.green;
+  if (score >= 75) return ansi.cyan;
+  if (score >= 50) return ansi.yellow;
+  return ansi.red;
+}
+
+function renderScoreLine(score: number | null, band: string | null, capped: boolean, rulesVersion: string, ansi: Ansi): string {
   if (score === null) {
     return `Setup Doctor  Not enough to score   rules v${rulesVersion}`;
   }
   const cappedNote = capped ? ' (capped: a critical finding limits the score to 74)' : '';
-  return `Setup Doctor  score ${score}/100  (${band})${cappedNote}   rules v${rulesVersion}`;
+  const scoreText = colorForScore(score, ansi)(ansi.bold(`score ${score}/100`));
+  return `Setup Doctor  ${scoreText}  (${band})${cappedNote}   rules v${rulesVersion}`;
 }
 
 function renderCategoryLine(categories: CategoryScore[]): string {
@@ -65,21 +75,28 @@ function groupFindings(findings: Finding[]): FindingGroup[] {
   return order.map((key) => ({ key, items: groups.get(key) as Finding[] }));
 }
 
-function renderFinding(f: Finding): string {
-  const label = SEVERITY_LABELS[f.severity].padEnd(4);
-  const lines = [`${label}  ${f.ruleId}  ${f.message}`, `      Fix: ${f.fix}`];
+function colorForSeverity(severity: Severity, ansi: Ansi): Ansi['red'] {
+  if (severity === 'critical') return ansi.boldRed;
+  if (severity === 'high') return ansi.red;
+  if (severity === 'medium') return ansi.yellow;
+  return ansi.gray;
+}
+
+function renderFinding(f: Finding, ansi: Ansi): string {
+  const label = colorForSeverity(f.severity, ansi)(SEVERITY_LABELS[f.severity].padEnd(4));
+  const lines = [`${label}  ${ansi.bold(f.ruleId)}  ${f.message}`, `      Fix: ${f.fix}`];
   return lines.join('\n');
 }
 
-function renderFindings(findings: Finding[]): string {
+function renderFindings(findings: Finding[], ansi: Ansi): string {
   if (findings.length === 0) return 'No findings.';
   const groups = groupFindings(findings);
   const lines: string[] = [];
   for (const group of groups) {
     const shown = group.items.slice(0, MAX_PER_GROUP);
-    for (const f of shown) lines.push(renderFinding(f));
+    for (const f of shown) lines.push(renderFinding(f, ansi));
     if (group.items.length > MAX_PER_GROUP) {
-      lines.push(`      ... and ${group.items.length - MAX_PER_GROUP} more like this`);
+      lines.push(ansi.dim(`      ... and ${group.items.length - MAX_PER_GROUP} more like this`));
     }
   }
   return lines.join('\n');
@@ -96,12 +113,15 @@ export interface TerminalReportInput {
   suppressedCount: number;
   skipped: Skipped[];
   outputPaths?: string[];
+  /** Defaults to no color; pass true only after checking shouldUseColor. */
+  useColor?: boolean;
 }
 
 export function renderTerminalReport(input: TerminalReportInput): string {
+  const ansi = getAnsi(input.useColor ?? false);
   const sections: string[] = [];
 
-  sections.push(renderScoreLine(input.score, input.band, input.capped, input.rulesVersion));
+  sections.push(renderScoreLine(input.score, input.band, input.capped, input.rulesVersion, ansi));
   sections.push('');
   if (input.score !== null) {
     sections.push(renderCategoryLine(input.categories));
@@ -109,7 +129,7 @@ export function renderTerminalReport(input: TerminalReportInput): string {
     sections.push(`Always-loaded context: about ${formatNumber(input.overheadTokens)} tokens`);
     sections.push('');
   }
-  sections.push(renderFindings(input.findings));
+  sections.push(renderFindings(input.findings, ansi));
 
   const summaryParts = [`${input.findings.length} finding${input.findings.length === 1 ? '' : 's'}`];
   if (input.suppressedCount > 0) summaryParts.push(`${input.suppressedCount} suppressed`);
