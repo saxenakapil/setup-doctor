@@ -25,11 +25,12 @@ export interface RunOptions {
   configPath?: string;
 }
 
-export function makeDiscoveryContext(options: RunOptions): DiscoveryContext {
+export function makeDiscoveryContext(options: RunOptions, ignore: string[] = []): DiscoveryContext {
   return {
     projectRoot: resolve(options.path ?? '.'),
     homeDir: options.homeDir ?? homedir(),
     scope: options.scope ?? 'all',
+    ignore,
   };
 }
 
@@ -218,11 +219,15 @@ export interface DoctorReport {
  * and scores the result (docs/scope.md section 10.4).
  */
 export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
-  const ctx = makeDiscoveryContext(options);
+  const projectRoot = resolve(options.path ?? '.');
+  // Config is loaded before discovery, not after: its `ignore` field must
+  // already be known so buildModel's directory walks can skip ignored
+  // paths entirely, rather than discovering and then discarding them.
+  const { raw: fileConfig, warnings: configWarnings } = await loadConfigFile(projectRoot, options.configPath);
+  const config = mergeConfig(fileConfig, options.config ?? {});
+  const ctx = makeDiscoveryContext(options, config.ignore);
   const agents = await detectAgents(ctx, options.agent ?? 'auto');
   const model = await buildModel(ctx, agents);
-  const { raw: fileConfig, warnings: configWarnings } = await loadConfigFile(ctx.projectRoot, options.configPath);
-  const config = mergeConfig(fileConfig, options.config ?? {});
   const sessions = await collectSessionsForRules(ctx, agents);
   const { kept, suppressed } = runRules(model, config, sessions);
   const { score, band, capped, categories } = scoreFindings(kept, model);

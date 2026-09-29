@@ -34,6 +34,7 @@ describe('SET-02 Hook points to a missing script', () => {
       projectRoot: join(__dirname, '..', 'fixtures', 'adapter-copilot', 'typical', 'project'),
       homeDir: join(__dirname, '..', 'fixtures', 'adapter-copilot', 'typical', 'nonexistent-home'),
       scope: 'all',
+      ignore: [],
     };
     const settings = await copilotAdapter.readSettings(ctx);
     const model = emptyModel();

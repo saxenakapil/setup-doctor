@@ -52,6 +52,27 @@ describe('loadConfigFile', () => {
     writeFileSync(join(dir, '.setupdoctorrc'), '{ not json');
     await expect(loadConfigFile(dir)).rejects.toThrow(ConfigParseError);
   });
+
+  it('parses a valid ignore array', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), JSON.stringify({ ignore: ['test/fixtures/**', 'vendor/'] }));
+    const result = await loadConfigFile(dir);
+    expect(result.raw).toEqual({ ignore: ['test/fixtures/**', 'vendor/'] });
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('warns and drops a non-array ignore value', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), JSON.stringify({ ignore: 'test/fixtures/**' }));
+    const result = await loadConfigFile(dir);
+    expect(result.raw).toEqual({});
+    expect(result.warnings[0]).toContain('ignore');
+  });
+
+  it('warns and drops an ignore array with a non-string element', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), JSON.stringify({ ignore: ['ok', 5] }));
+    const result = await loadConfigFile(dir);
+    expect(result.raw).toEqual({});
+    expect(result.warnings[0]).toContain('ignore');
+  });
 });
 
 describe('mergeConfig', () => {
@@ -72,5 +93,15 @@ describe('mergeConfig', () => {
   it('merges thresholds instead of replacing wholesale', () => {
     const merged = mergeConfig({ thresholds: { 'INS-02': { warnTokens: 1000, highTokens: 3000 } } }, {});
     expect(merged.thresholds['INS-02']).toEqual({ warnTokens: 1000, highTokens: 3000 });
+  });
+
+  it('CLI ignore overrides the config file ignore wholesale, same as disabledRules', () => {
+    const merged = mergeConfig({ ignore: ['a/**'] }, { ignore: ['b/**'] });
+    expect(merged.ignore).toEqual(['b/**']);
+  });
+
+  it('config file ignore wins over the empty default', () => {
+    const merged = mergeConfig({ ignore: ['test/fixtures/**'] }, {});
+    expect(merged.ignore).toEqual(['test/fixtures/**']);
   });
 });

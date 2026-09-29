@@ -157,7 +157,7 @@ async function readInstructions(ctx: DiscoveryContext): Promise<AdapterResult<In
     candidates.push({ path: join(ctx.projectRoot, 'CLAUDE.md'), scope: 'project' });
     candidates.push({ path: join(ctx.projectRoot, '.claude', 'CLAUDE.md'), scope: 'project' });
     candidates.push({ path: join(ctx.projectRoot, 'CLAUDE.local.md'), scope: 'project' });
-    for (const nested of await findNestedFiles(ctx.projectRoot, 'CLAUDE.md', DISCOVERY_DEPTH_LIMIT)) {
+    for (const nested of await findNestedFiles(ctx.projectRoot, 'CLAUDE.md', DISCOVERY_DEPTH_LIMIT, ctx.ignore)) {
       candidates.push({ path: nested, scope: 'project' });
     }
   }

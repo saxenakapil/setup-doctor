@@ -106,7 +106,7 @@ export async function runWrapped(options: WrappedRunOptions): Promise<WrappedRun
 
   const allRecords: SessionRecord[] = [];
   if (adapter) {
-    const ctx = { projectRoot: resolve('.'), homeDir, scope: 'all' as const };
+    const ctx = { projectRoot: resolve('.'), homeDir, scope: 'all' as const, ignore: [] };
     for await (const record of adapter.readSessions(ctx, fetchPeriod)) allRecords.push(record);
   }
 

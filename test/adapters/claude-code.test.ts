@@ -12,6 +12,7 @@ function ctxFor(scenario: string, opts: { home?: string } = {}): DiscoveryContex
     projectRoot: join(FIXTURES, scenario, 'project'),
     homeDir: opts.home ?? join(FIXTURES, scenario, 'home'),
     scope: 'all',
+    ignore: [],
   };
 }
 
@@ -35,6 +36,7 @@ describe('claude-code adapter: empty project', () => {
       projectRoot: tempDir('setup-doctor-empty-project-'),
       homeDir: tempDir('setup-doctor-empty-home-'),
       scope: 'all',
+      ignore: [],
     };
     expect(await claudeCodeAdapter.detect(ctx)).toBe(false);
     const instructions = await claudeCodeAdapter.readInstructions(ctx);
@@ -164,6 +166,7 @@ describe('claude-code adapter: oversized file', () => {
       projectRoot,
       homeDir: tempDir('setup-doctor-oversized-home-'),
       scope: 'all',
+      ignore: [],
     };
     const result = await claudeCodeAdapter.readInstructions(ctx);
     expect(result.items).toEqual([]);

@@ -224,6 +224,11 @@ export interface DiscoveryContext {
   projectRoot: string;
   homeDir: string;
   scope: Scope | 'all';
+  // Glob patterns (relative to projectRoot) to exclude from discovery,
+  // from .setupdoctorrc's `ignore` field. Applies only to project-scope
+  // paths: global paths (under homeDir) are never matched against it,
+  // the same way .gitignore only ever applies within a repo.
+  ignore: string[];
 }
 
 export interface Adapter {
@@ -264,6 +269,10 @@ export interface SetupDoctorConfig {
   minSeverity: Severity;
   disabledRules: string[];
   thresholds: Thresholds;
+  // Glob patterns (relative to the project root) to exclude from
+  // discovery entirely: not read, not scored, not reported as skipped.
+  // See src/adapters/glob.ts for the supported syntax.
+  ignore: string[];
 }
 
 export interface RuleContext {

@@ -62,6 +62,31 @@ Per-rule tunable numbers, for the handful of rules that have them:
 | `SKL-04` | `maxLines` | 500 | Skill file length before "too long" |
 | `MCP-04` | `maxServers` | 8 | Number of enabled MCP servers before "too many" |
 
+## `ignore`
+
+Glob patterns (relative to the project root) for paths to exclude from discovery entirely, not merely from the findings list: an ignored path is never read, so it cannot leak a "secret" into a report or count toward the score, and it is never listed as "skipped" either, since it was never something the tool was trying to read in the first place.
+
+```json
+{
+  "ignore": ["test/fixtures/**", "vendor/"]
+}
+```
+
+Supported syntax (a deliberately small subset, not a full `.gitignore` implementation):
+
+| Pattern | Matches |
+| --- | --- |
+| `*` | any characters within one path segment (not across a `/`) |
+| `**` | any number of path segments, including zero |
+| `?` | a single character within one path segment |
+| a trailing `/` | shorthand for "everything under this directory" (same as adding `/**`) |
+
+Patterns are anchored at the project root by default; only a pattern that itself starts with `**/` matches at any depth (`**/*.tmp` matches both `debug.tmp` at the root and `a/b/debug.tmp`, but a bare `fixtures/**` only matches a top-level `fixtures/` directory, not `examples/fixtures/`).
+
+This is genuinely useful for any project with its own test fixtures, vendored code, or generated/example content that happens to contain intentionally-bad configuration (this project's own `.setupdoctorrc` uses `"ignore": ["test/fixtures/**"]` for exactly that reason: `test/fixtures/` is full of deliberately broken `CLAUDE.md`/`AGENTS.md` files written to trigger rules in unit tests, and without excluding it a self-audit of this repository would otherwise score itself against its own test data). It currently applies to nested instruction-file discovery (`CLAUDE.md`/`AGENTS.md` found in subdirectories) and project-scope skill/subagent folders; a small, separately-hardcoded list (`node_modules`, `.git`, `dist`, `build`, `.venv`, `vendor`, `.setupdoctor-backup`) is always skipped regardless of this setting and needs no configuration.
+
+Like `disabledRules`, a CLI-level override (were one ever added) would win over the config file's value wholesale, not merge with it; there is currently no `--ignore` flag, only the config file.
+
 ## `--config <path>`: a config file somewhere else
 
 ```bash

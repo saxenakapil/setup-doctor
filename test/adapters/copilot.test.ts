@@ -10,6 +10,7 @@ function ctxFor(scenario: string): DiscoveryContext {
     projectRoot: join(FIXTURES, scenario, 'project'),
     homeDir: join(FIXTURES, scenario, 'nonexistent-home'),
     scope: 'all',
+    ignore: [],
   };
 }
 
@@ -25,6 +26,7 @@ describe('copilot adapter', () => {
       projectRoot: join(FIXTURES, 'does-not-exist'),
       homeDir: join(FIXTURES, 'does-not-exist-home'),
       scope: 'all',
+      ignore: [],
     };
     expect(await copilotAdapter.detect(emptyCtx)).toBe(false);
   });
@@ -77,6 +79,7 @@ describe('copilot adapter', () => {
       projectRoot: join(FIXTURES, 'typical', 'project'),
       homeDir: join(FIXTURES, 'typical', 'home-with-hooks'),
       scope: 'all',
+      ignore: [],
     };
     const result = await copilotAdapter.readSettings(homeCtx);
     const hooks = result.items.filter((i): i is import('../../src/core/types.js').HookDef => 'event' in i);
@@ -101,6 +104,7 @@ describe('copilot adapter', () => {
       projectRoot: join(FIXTURES, 'typical', 'project'),
       homeDir: join(__dirname, '..', 'fixtures', 'wrapped-copilot', 'home'),
       scope: 'all',
+      ignore: [],
     };
     const out = [];
     for await (const r of copilotAdapter.readSessions(wrappedCtx, { kind: 'all' })) out.push(r);
@@ -116,6 +120,7 @@ describe('copilot adapter', () => {
       projectRoot: join(FIXTURES, 'shared-only', 'project'),
       homeDir: join(FIXTURES, 'shared-only', 'nonexistent-home'),
       scope: 'all',
+      ignore: [],
     };
     expect(await copilotAdapter.detect(sharedOnlyCtx)).toBe(false);
   });

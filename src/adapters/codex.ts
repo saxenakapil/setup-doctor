@@ -114,7 +114,7 @@ async function readInstructions(ctx: DiscoveryContext): Promise<AdapterResult<In
   }
   if (includesScope(ctx, 'project')) {
     candidates.push({ path: join(ctx.projectRoot, 'AGENTS.md'), scope: 'project' });
-    for (const nested of await findNestedFiles(ctx.projectRoot, 'AGENTS.md', DISCOVERY_DEPTH_LIMIT)) {
+    for (const nested of await findNestedFiles(ctx.projectRoot, 'AGENTS.md', DISCOVERY_DEPTH_LIMIT, ctx.ignore)) {
       candidates.push({ path: nested, scope: 'project' });
     }
   }

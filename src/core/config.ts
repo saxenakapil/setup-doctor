@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { DEFAULT_CONFIG } from './defaults.js';
 import type { SetupDoctorConfig } from './types.js';
 
-const KNOWN_KEYS = new Set(['agent', 'scope', 'theme', 'minSeverity', 'disabledRules', 'thresholds']);
+const KNOWN_KEYS = new Set(['agent', 'scope', 'theme', 'minSeverity', 'disabledRules', 'thresholds', 'ignore']);
 
 // Value-level validation for the four flag-default keys. Mirrors each key's
 // real valid values (docs/scope.md section 7's example includes "auto" for
@@ -65,6 +65,14 @@ export async function loadConfigFile(projectRoot: string, configPath?: string): 
       warnings.push(`Invalid value ${JSON.stringify(raw[key])} for config key "${key}" in ${path} is ignored.`);
       delete raw[key];
     }
+    if (key === 'ignore') {
+      const value = raw[key];
+      const valid = Array.isArray(value) && value.every((p) => typeof p === 'string');
+      if (!valid) {
+        warnings.push(`Invalid value for config key "ignore" in ${path} (must be an array of strings) is ignored.`);
+        delete raw[key];
+      }
+    }
   }
   return { raw: raw as Partial<SetupDoctorConfig>, warnings };
 }
@@ -78,6 +86,7 @@ export function mergeConfig(
     ...(fileConfig ?? {}),
     ...cliOverrides,
     disabledRules: cliOverrides.disabledRules ?? fileConfig?.disabledRules ?? DEFAULT_CONFIG.disabledRules,
+    ignore: cliOverrides.ignore ?? fileConfig?.ignore ?? DEFAULT_CONFIG.ignore,
     thresholds: {
       ...DEFAULT_CONFIG.thresholds,
       ...(fileConfig?.thresholds ?? {}),

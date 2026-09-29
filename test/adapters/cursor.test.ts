@@ -15,6 +15,7 @@ function ctxFor(scenario: string): DiscoveryContext {
     projectRoot: join(FIXTURES, scenario, 'project'),
     homeDir: join(FIXTURES, scenario, 'nonexistent-home'),
     scope: 'all',
+    ignore: [],
   };
 }
 
@@ -70,6 +71,7 @@ describe('cursor adapter', () => {
       projectRoot: join(FIXTURES, 'does-not-exist'),
       homeDir: join(FIXTURES, 'does-not-exist-home'),
       scope: 'all',
+      ignore: [],
     };
     expect(await cursorAdapter.detect(emptyCtx)).toBe(false);
   });
@@ -99,7 +101,7 @@ describe.skipIf(!HAS_SQLITE)('cursor adapter readSessions against a real built d
         ],
       },
     ]);
-    const ctx: DiscoveryContext = { projectRoot: '/nonexistent', homeDir, scope: 'all' };
+    const ctx: DiscoveryContext = { projectRoot: '/nonexistent', homeDir, scope: 'all', ignore: [] };
     const out = [];
     for await (const r of cursorAdapter.readSessions(ctx, { kind: 'all' })) out.push(r);
     expect(out).toHaveLength(2);

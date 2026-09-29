@@ -9,6 +9,31 @@ import type { Agent, DiscoveryContext, RelativeRef, Scope, Skill, Skipped } from
 import { toDisplayPath } from './display-path.js';
 import { isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
 import { parseFrontmatter } from './frontmatter.js';
+import { matchesIgnore } from './glob.js';
+
+// True only for a path both inside the project root (not "~/..." or
+// absolute, i.e. toDisplayPath resolved it to a plain relative path) and
+// matching one of ctx.ignore's patterns. Global (home-dir) paths are never
+// ignorable, the same way .gitignore only ever applies within a repo.
+//
+// isDir matters: a pattern like "vendor/**" is meant to match everything
+// *under* vendor, but its regex requires a trailing path segment, so the
+// bare directory path "vendor" itself never matches it directly (by
+// design -- see glob.test.ts's "does not match the bare directory itself"
+// case, which findNestedFiles's recursive one-level-at-a-time walk relies
+// on). collectSkillFolders checks a whole skill folder in one step, with
+// no finer-grained recursion underneath to catch it the way findNestedFiles
+// does, so a directory check here appends a synthetic trailing "/" before
+// matching, letting "**"'s zero-or-more semantics cover the bare folder too.
+function isIgnored(absPath: string, ctx: DiscoveryContext, isDir: boolean): boolean {
+  if (ctx.ignore.length === 0) return false;
+  const display = toDisplayPath(absPath, ctx);
+  // Not a plain project-relative path (toDisplayPath returns the absolute
+  // path unchanged when it's inside neither the project root nor home) or
+  // it's home-relative ("~/..."): never ignorable either way.
+  if (display === absPath || display.startsWith('~/')) return false;
+  return matchesIgnore(display, ctx.ignore) || (isDir && matchesIgnore(`${display}/`, ctx.ignore));
+}
 
 function frontmatterCheck(fm: ReturnType<typeof parseFrontmatter>): { valid: boolean; error?: string } {
   if (!fm.ok) return { valid: false, error: fm.error };
@@ -68,6 +93,7 @@ export async function collectSkillFolders(
   for (const entry of (await listDirSafe(skillsDir)).sort()) {
     const folder = join(skillsDir, entry);
     if (!(await isDirectory(folder))) continue;
+    if (isIgnored(folder, ctx, true)) continue;
     const skillFile = join(folder, 'SKILL.md');
     if (!(await pathExists(skillFile))) continue;
     const result = await readSkillLikeFile(scopeVal, skillFile, folder, 'skill', agent, ctx);
@@ -88,6 +114,7 @@ export async function collectAgentFiles(
     if (!entry.endsWith('.md')) continue;
     const filePath = join(agentsDir, entry);
     if (await isDirectory(filePath)) continue;
+    if (isIgnored(filePath, ctx, false)) continue;
     const result = await readSkillLikeFile(scopeVal, filePath, agentsDir, 'agent', agent, ctx);
     if ('item' in result) items.push(result.item);
     else skipped.push(result.skip);

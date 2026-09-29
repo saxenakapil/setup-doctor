@@ -23,6 +23,7 @@ export async function loadFixtureModel(fixtureName: string): Promise<NormalizedM
     projectRoot: hasProjectSubfolder ? join(root, 'project') : root,
     homeDir: (await pathExists(homeCandidate)) ? homeCandidate : NO_HOME,
     scope: 'all',
+    ignore: [],
   };
   const model = emptyModel();
   model.agents = ['claude'];

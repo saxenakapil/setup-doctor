@@ -3,8 +3,9 @@
 // See docs/scope.md sections 8.4 and 15 (path safety, symlink loops, size limit).
 
 import { lstat, readFile, readdir, realpath, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { MAX_FILE_SIZE_BYTES, SKIP_DIRS } from '../core/defaults.js';
+import { matchesIgnore } from './glob.js';
 
 export interface ReadOk {
   ok: true;
@@ -76,10 +77,18 @@ export async function listDirSafe(path: string): Promise<string[]> {
 /**
  * Finds files named `fileName` nested under `root`, up to `maxDepth` levels
  * deep (root itself is depth 0), skipping SKIP_DIRS and symlink loops.
+ * `ignore` (glob patterns relative to `root`, see glob.ts) additionally
+ * excludes both descending into a matching directory and recording a
+ * matching file, so an ignored subtree is never walked at all, not merely
+ * filtered out afterward.
  */
-export async function findNestedFiles(root: string, fileName: string, maxDepth: number): Promise<string[]> {
+export async function findNestedFiles(root: string, fileName: string, maxDepth: number, ignore: string[] = []): Promise<string[]> {
   const found: string[] = [];
   const visitedRealDirs = new Set<string>();
+
+  function relOf(full: string): string {
+    return relative(root, full).split(sep).join('/');
+  }
 
   async function walk(dir: string, depth: number): Promise<void> {
     if (depth > maxDepth) return;
@@ -95,6 +104,7 @@ export async function findNestedFiles(root: string, fileName: string, maxDepth: 
     for (const entry of await listDirSafe(dir)) {
       if (SKIP_DIRS.has(entry)) continue;
       const full = join(dir, entry);
+      if (ignore.length > 0 && matchesIgnore(relOf(full), ignore)) continue;
       let st;
       try {
         st = await lstat(full);

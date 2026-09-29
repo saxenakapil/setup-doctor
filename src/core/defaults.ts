@@ -46,6 +46,7 @@ export const DEFAULT_CONFIG: SetupDoctorConfig = {
   minSeverity: 'low',
   disabledRules: [],
   thresholds: {},
+  ignore: [],
 };
 
 export const DISCOVERY_DEPTH_LIMIT = 5;
