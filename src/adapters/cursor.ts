@@ -1,6 +1,7 @@
-// Cursor adapter: instructions (.cursorrules, .cursor/rules/*) and MCP
-// servers (mcp.json). See docs/scope.md section 8.3. Like Codex, Cursor has
-// no skills/plugins/settings concept in this tool's v1 scope.
+// Cursor adapter: instructions (.cursorrules, .cursor/rules/*), MCP servers
+// (mcp.json) and project skills (.cursor/skills/*/SKILL.md). See
+// docs/scope.md section 8.3. Like Codex, Cursor still has no
+// plugins/settings concept in this tool's v1 scope.
 //
 // No local Cursor MCP config or rules files were found to verify against on
 // 2026-09-29 (see docs/notes.md), so those follow the documented shape
@@ -12,6 +13,20 @@
 // separate `~/.cursor/ai-tracking/ai-code-tracking.db` SQLite file has a
 // purpose-built schema but was found empty on a real, active install and is
 // not read.
+//
+// Skills: Cursor's real, current skills mechanism (verified on a real,
+// actively used install on 2026-09-29, see docs/notes.md) stores project
+// skills at `.cursor/skills/<name>/SKILL.md`, same shape as Claude Code's
+// SKILL.md (YAML frontmatter with `name`/`description`, markdown body).
+// Only project scope is read. Personal/global skills live in Cursor's
+// cloud-synced "user Agent Store", not at a fixed local path, so this
+// file-system-only tool cannot reliably locate them; `~/.cursor/skills/` is
+// only a fallback Cursor itself uses when no store is mounted, not the
+// primary location, so treating it as the global skills directory would
+// miss most real setups and is not worth the false confidence. Separately,
+// `~/.cursor/skills-cursor/` holds Cursor's own built-in skills (shipped
+// with the IDE, not user content) and must never be scanned as if it were
+// project or user skills.
 
 import { join } from 'node:path';
 import { estimateTokens } from '../core/tokens.js';
@@ -19,6 +34,7 @@ import { extractInlineCodePaths, extractScriptCommands } from '../core/text.js';
 import { toDisplayPath } from './display-path.js';
 import { isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
 import { parseMcpJsonFile } from './mcp-json-shape.js';
+import { collectSkillFolders } from './skill-shape.js';
 import { resolvePeriodBounds } from '../wrapped/period.js';
 import { readAllSessions as readAllCursorSessions } from '../wrapped/parse-cursor.js';
 import type {
@@ -155,11 +171,22 @@ async function readMcp(ctx: DiscoveryContext): Promise<AdapterResult<McpServer>>
   return { items, skipped, warnings, configErrors };
 }
 
-// ---- No skills, plugins or settings concept for Cursor in v1 scope ----
+// ---- Skills ----
 
-async function readSkills(): Promise<AdapterResult<Skill>> {
-  return { items: [], skipped: [], warnings: [] };
+async function readSkills(ctx: DiscoveryContext): Promise<AdapterResult<Skill>> {
+  const items: Skill[] = [];
+  const skipped: Skipped[] = [];
+  const warnings: string[] = [];
+
+  if (includesScope(ctx, 'project')) {
+    await collectSkillFolders(join(ctx.projectRoot, '.cursor', 'skills'), 'project', 'cursor', ctx, items, skipped);
+  }
+
+  items.sort((a, b) => a.path.localeCompare(b.path));
+  return { items, skipped, warnings };
 }
+
+// ---- No plugins or settings concept for Cursor in v1 scope ----
 
 async function readPlugins(): Promise<AdapterResult<PluginInfo>> {
   return { items: [], skipped: [], warnings: [] };

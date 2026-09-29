@@ -38,10 +38,25 @@ describe('cursor adapter', () => {
     expect(result.items[0]).toMatchObject({ name: 'linear', command: 'npx', scope: 'project' });
   });
 
-  it('has no skills, plugins or settings concept', async () => {
-    expect((await cursorAdapter.readSkills(ctx)).items).toEqual([]);
+  it('reads project skills from .cursor/skills/*/SKILL.md', async () => {
+    const result = await cursorAdapter.readSkills(ctx);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      agent: 'cursor',
+      scope: 'project',
+      name: 'demo',
+      frontmatterValid: true,
+    });
+  });
+
+  it('has no plugins or settings concept', async () => {
     expect((await cursorAdapter.readPlugins(ctx)).items).toEqual([]);
     expect((await cursorAdapter.readSettings(ctx)).items).toEqual([]);
+  });
+
+  it('does not read global skills (Cursor personal skills live in the cloud-synced Agent Store, not a fixed local path)', async () => {
+    const globalOnlyCtx: DiscoveryContext = { ...ctx, scope: 'global' };
+    expect((await cursorAdapter.readSkills(globalOnlyCtx)).items).toEqual([]);
   });
 
   it('readSessions yields nothing when the fixture home has no Cursor database', async () => {

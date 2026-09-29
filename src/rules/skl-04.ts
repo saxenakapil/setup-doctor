@@ -5,7 +5,7 @@ export const skl04: Rule = {
   id: 'SKL-04',
   category: 'skills',
   title: 'Skill file too long',
-  agents: ['claude', 'copilot'],
+  agents: ['claude', 'copilot', 'cursor'],
   heuristic: false,
   severityLabel: 'low',
   why: 'Long skills load a lot of text each time they trigger.',

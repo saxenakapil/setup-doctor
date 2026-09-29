@@ -20,7 +20,7 @@ export const skl03: Rule = {
   id: 'SKL-03',
   category: 'skills',
   title: 'Overlapping skills',
-  agents: ['claude', 'copilot'],
+  agents: ['claude', 'copilot', 'cursor'],
   heuristic: false,
   severityLabel: 'medium',
   why: 'Overlapping triggers make the agent pick the wrong skill or load both.',

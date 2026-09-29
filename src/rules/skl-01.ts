@@ -4,7 +4,7 @@ export const skl01: Rule = {
   id: 'SKL-01',
   category: 'skills',
   title: 'Invalid or missing frontmatter',
-  agents: ['claude', 'copilot'],
+  agents: ['claude', 'copilot', 'cursor'],
   heuristic: false,
   severityLabel: 'high',
   why: 'Without a valid name and description the agent cannot decide when to use the skill.',

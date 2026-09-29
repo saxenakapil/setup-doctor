@@ -5,7 +5,7 @@ export const skl02: Rule = {
   id: 'SKL-02',
   category: 'skills',
   title: 'Description too short or too long',
-  agents: ['claude', 'copilot'],
+  agents: ['claude', 'copilot', 'cursor'],
   heuristic: false,
   severityLabel: 'medium',
   why: 'The description decides triggering; too short is ambiguous and too long wastes tokens on every turn.',

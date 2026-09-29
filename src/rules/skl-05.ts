@@ -4,7 +4,7 @@ export const skl05: Rule = {
   id: 'SKL-05',
   category: 'skills',
   title: 'Broken links to bundled files',
-  agents: ['claude', 'copilot'],
+  agents: ['claude', 'copilot', 'cursor'],
   heuristic: false,
   severityLabel: 'medium',
   why: 'A skill that points to missing files fails when it triggers.',
