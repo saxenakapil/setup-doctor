@@ -107,7 +107,7 @@ This repository ships a real [`.pre-commit-hooks.yaml`](../../.pre-commit-hooks.
 ```yaml
 repos:
   - repo: https://github.com/saxenakapil/setup-doctor
-    rev: <a tag or commit SHA>
+    rev: v0.1.0
     hooks:
       - id: setup-doctor
         args: [--fail-under, '75']
@@ -119,7 +119,7 @@ It always runs on the whole project, not per staged file (`pass_filenames: false
 
 Verified against a real local install of the `pre-commit` framework, not just read against its documentation: a scratch project referencing this repository (via `pre-commit try-repo`, at a real commit) ran the hook end to end, printed a real report, passed with no threshold set, and correctly failed the commit (exit 1) once `args: [--fail-under, '99']` was added and the real score came in under it.
 
-This repository has no tagged releases yet; pin `rev` to a specific commit SHA until one exists, and switch to a tag once this project starts cutting them.
+`rev` should always be a real tag (like `v0.1.0` above) or commit SHA, never a branch name: pre-commit caches the hook environment by `rev`, so a floating branch reference would silently keep running whatever code was current the first time you ran it.
 
 ## A note on `npx setup-doctor@latest`
 

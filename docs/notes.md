@@ -225,6 +225,8 @@ Log assumptions, deviations and open items here while building. Keep entries sho
   - **This repository has no tagged releases yet.** The doc honestly says to pin `rev` to a commit SHA for now rather than inventing a tag that does not exist, and to switch to a tag once one is cut.
   - No new product code; `docs/guide/ci-integration.md` gained a new section, `.pre-commit-hooks.yaml` is the only new file.
 
+- 2026-09-29: First real npm publish (`setup-doctor@0.1.0`, superseding the `0.0.1` name-claim placeholder) and a `v0.1.0` git tag, both verified live against the real registry and the real GitHub remote (`npm view setup-doctor version`, `npx setup-doctor@latest doctor` against a scratch project, `git ls-remote --tags`), not just assumed to have worked from a success message. `docs/guide/ci-integration.md`'s pre-commit hook example updated from "no tagged releases yet, pin to a SHA" to the real `rev: v0.1.0`.
+
 ## Backlog / v1.1+ ideas
 
 Not in v1 scope. Recorded so Phase 1 to 8 decisions do not foreclose them.
