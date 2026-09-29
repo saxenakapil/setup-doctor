@@ -4,6 +4,7 @@ import { appendHistoryEntry, compareToLast, formatComparisonLine, readHistory, t
 import { makeDiscoveryContext, runDoctor } from './core/runner.js';
 import { writeOutputFile } from './core/output.js';
 import { applyFixes, backupFiles, planFixes } from './core/fix.js';
+import { filterByMinSeverity } from './core/findings.js';
 import type { Agent, Scope, SetupDoctorConfig, Severity } from './core/types.js';
 import { ALL_RULES, getRule } from './rules/index.js';
 import { renderTerminalReport } from './render/terminal.js';
@@ -31,7 +32,7 @@ const defaultIo: Io = {
   err: (text) => process.stderr.write(text + '\n'),
 };
 
-const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain']);
+const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain', 'mcp']);
 const FORMATS = new Set(['terminal', 'json', 'html']);
 const AGENT_VALUES = new Set(['claude', 'codex', 'cursor', 'copilot', 'all']);
 const AGENT_LABELS: Record<string, string> = {
@@ -42,7 +43,6 @@ const AGENT_LABELS: Record<string, string> = {
 };
 const SCOPE_VALUES = new Set(['project', 'global', 'all']);
 const MIN_SEVERITY_VALUES = new Set(['low', 'medium', 'high', 'critical']);
-const SEVERITY_RANK: Record<Severity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
 
 const HELP = `setup-doctor ${VERSION}
 Score and improve your AI coding agent setup. Local-only, open source.
@@ -53,6 +53,7 @@ Usage:
   setup-doctor badge               Write README badge files
   setup-doctor rules               List all rules
   setup-doctor explain <RULE_ID>   Explain one rule
+  setup-doctor mcp                 Start an MCP server (doctor and wrapped as read-only tools, stdio)
 
 Options:
   --help       Show this help
@@ -189,11 +190,6 @@ function parseCommonFlags(
     outDir,
     yes,
   };
-}
-
-function filterByMinSeverity<T extends { severity: Severity }>(items: T[], min: Severity): T[] {
-  const minRank = SEVERITY_RANK[min];
-  return items.filter((f) => SEVERITY_RANK[f.severity] >= minRank);
 }
 
 /** --ci implies --no-color (scope.md section 6.2: --ci is "no prompts, no color, stable output"). */
@@ -736,6 +732,11 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
   }
   if (command === 'explain') {
     return runExplainCommand(rest, io);
+  }
+  if (command === 'mcp') {
+    const { runMcpServer } = await import('./mcp/server.js');
+    await runMcpServer();
+    return 0;
   }
 
   io.err(`setup-doctor ${command}: not implemented yet. See docs/scope.md.`);

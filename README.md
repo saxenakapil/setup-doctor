@@ -18,6 +18,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 - **Wrapped**: summarizes your local session logs (Claude Code, Codex, GitHub Copilot CLI or Cursor) (sessions, active days, tokens, an API-equivalent cost estimate, streaks, busiest hour, a persona label) into a shareable card, in three visual themes and two sizes, with optional PNG export.
 - **Badge**: a static or live (shields.io endpoint) README badge showing your current score.
 - **HTML report**: a single self-contained, themed report file. No network requests, strict Content-Security-Policy, everything inlined.
+- **MCP server mode**: `npx setup-doctor mcp` exposes Doctor and Wrapped as read-only tools over stdio for Claude Desktop and other MCP clients; see [`docs/guide/mcp-server.md`](docs/guide/mcp-server.md).
 
 ## Supported agents
 
@@ -42,6 +43,7 @@ npx setup-doctor badge                  # write a README badge
 npx setup-doctor wrapped --period 30d   # usage summary + shareable card
 npx setup-doctor rules                  # list all 29 rules
 npx setup-doctor explain INS-02         # explain what a rule checks and how to fix it
+npx setup-doctor mcp                    # start an MCP server (doctor + wrapped as read-only tools)
 ```
 
 Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/plugins) from this repository's marketplace, which exposes `/setup-doctor:doctor` and `/setup-doctor:wrapped` as skills that call the same CLI.
@@ -93,7 +95,7 @@ Run `npx setup-doctor --help` for the full list.
 - **Never touch your files without `--fix`, and even then, never without a preview, a confirmation, and a backup first.** Every other command is read-only, always.
 - **Never require an account, an API key, or a login.** There is nothing to sign up for and nothing to configure before your first run.
 - **Never charge for anything.** `setup-doctor` is free and MIT-licensed, and will stay that way; there is no paid tier this project is funneling you toward.
-- **Never add a runtime dependency casually.** The budget is 0 to 3, forever, and every one is reviewed on its own merits (see [`docs/notes.md`](docs/notes.md) for the audit trail on the one native dependency this project has, `@resvg/resvg-js`, which is optional and only used for PNG export).
+- **Never add a runtime dependency casually.** The budget is 0 to 3, forever, and every one is reviewed on its own merits (see [`docs/notes.md`](docs/notes.md) for the audit trail on `@resvg/resvg-js`, optional and only used for PNG export, and on `@modelcontextprotocol/sdk` plus its required `zod` peer dependency, used only by `mcp` mode and kept out of the main `dist/bin.js` bundle entirely).
 
 ## Guide
 
@@ -106,6 +108,7 @@ Every command, with real (not fabricated) output and worked examples:
 - [`docs/guide/ci-integration.md`](docs/guide/ci-integration.md): the two example workflows, explained
 - [`docs/guide/agents.md`](docs/guide/agents.md): what each agent reads, and how a shared file is scored once, not twice
 - [`docs/guide/config.md`](docs/guide/config.md): `.setupdoctorrc` fully worked, including what it does not do yet
+- [`docs/guide/mcp-server.md`](docs/guide/mcp-server.md): using Doctor and Wrapped as read-only MCP tools from Claude Desktop or another MCP client
 - [`docs/guide/troubleshooting.md`](docs/guide/troubleshooting.md): "nothing to check," a wrong-looking score, and more
 
 ## Docs
