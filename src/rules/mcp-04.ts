@@ -5,7 +5,7 @@ export const mcp04: Rule = {
   id: 'MCP-04',
   category: 'mcp',
   title: 'Many servers configured',
-  agents: ['claude', 'codex', 'cursor'],
+  agents: ['claude', 'codex', 'cursor', 'copilot'],
   heuristic: false,
   severityLabel: 'low',
   why: 'Each server adds tool definitions to the context of every session.',

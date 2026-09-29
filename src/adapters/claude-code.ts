@@ -4,7 +4,7 @@
 import { basename, dirname, join } from 'node:path';
 import { DISCOVERY_DEPTH_LIMIT } from '../core/defaults.js';
 import { estimateTokens } from '../core/tokens.js';
-import { extractInlineCodePaths, extractRelativeRefs, extractScriptCommands } from '../core/text.js';
+import { extractInlineCodePaths, extractScriptCommands } from '../core/text.js';
 import type {
   Adapter,
   AdapterResult,
@@ -16,17 +16,16 @@ import type {
   Period,
   PermissionRule,
   PluginInfo,
-  RelativeRef,
   Scope,
   SessionRecord,
   Skill,
   Skipped,
   StaleReference,
 } from '../core/types.js';
-import { parseFrontmatter } from './frontmatter.js';
 import { findNestedFiles, isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
 import { parseMcpJsonFile } from './mcp-json-shape.js';
 import { readClaudeSettingsFile } from './claude-settings-shape.js';
+import { collectAgentFiles, collectSkillFolders } from './skill-shape.js';
 import { toDisplayPath } from './display-path.js';
 import { readAllSessions } from '../wrapped/parse-claude.js';
 import { resolvePeriodBounds } from '../wrapped/period.js';
@@ -181,99 +180,18 @@ async function readInstructions(ctx: DiscoveryContext): Promise<AdapterResult<In
 
 // ---- Skills and subagents ----
 
-function frontmatterCheck(fm: ReturnType<typeof parseFrontmatter>): { valid: boolean; error?: string } {
-  if (!fm.ok) return { valid: false, error: fm.error };
-  const name = fm.data.name;
-  const description = fm.data.description;
-  if (!name || !name.trim()) return { valid: false, error: 'missing name' };
-  if (description === undefined) return { valid: false, error: 'missing description' };
-  if (!description.trim()) return { valid: false, error: 'empty description' };
-  return { valid: true };
-}
-
-async function readSkillLikeFile(
-  scopeVal: Scope,
-  filePath: string,
-  folderPath: string,
-  kind: 'skill' | 'agent',
-  ctx: DiscoveryContext,
-): Promise<{ item: Skill } | { skip: Skipped }> {
-  const read = await readTextFileSafe(filePath);
-  if (!read.ok) return { skip: { path: toDisplayPath(filePath, ctx), reason: read.reason } };
-  const text = read.text.replace(/\r\n/g, '\n');
-  const fm = parseFrontmatter(text);
-  const check = frontmatterCheck(fm);
-  const lines = text.split('\n');
-  const relativeRefs: RelativeRef[] = [];
-  for (const ref of extractRelativeRefs(text)) {
-    relativeRefs.push({ ...ref, exists: await pathExists(join(folderPath, ref.target)) });
-  }
-  return {
-    item: {
-      agent: 'claude',
-      scope: scopeVal,
-      path: toDisplayPath(filePath, ctx),
-      sizeBytes: read.sizeBytes,
-      kind,
-      folder: toDisplayPath(folderPath, ctx),
-      name: fm.data.name,
-      description: fm.data.description,
-      frontmatterValid: check.valid,
-      frontmatterError: check.error,
-      lineCount: lines.length,
-      text,
-      relativeRefs,
-    },
-  };
-}
-
-async function collectSkillFolders(
-  skillsDir: string,
-  scopeVal: Scope,
-  ctx: DiscoveryContext,
-  items: Skill[],
-  skipped: Skipped[],
-): Promise<void> {
-  for (const entry of (await listDirSafe(skillsDir)).sort()) {
-    const folder = join(skillsDir, entry);
-    if (!(await isDirectory(folder))) continue;
-    const skillFile = join(folder, 'SKILL.md');
-    if (!(await pathExists(skillFile))) continue;
-    const result = await readSkillLikeFile(scopeVal, skillFile, folder, 'skill', ctx);
-    if ('item' in result) items.push(result.item);
-    else skipped.push(result.skip);
-  }
-}
-
-async function collectAgentFiles(
-  agentsDir: string,
-  scopeVal: Scope,
-  ctx: DiscoveryContext,
-  items: Skill[],
-  skipped: Skipped[],
-): Promise<void> {
-  for (const entry of (await listDirSafe(agentsDir)).sort()) {
-    if (!entry.endsWith('.md')) continue;
-    const filePath = join(agentsDir, entry);
-    if (await isDirectory(filePath)) continue;
-    const result = await readSkillLikeFile(scopeVal, filePath, agentsDir, 'agent', ctx);
-    if ('item' in result) items.push(result.item);
-    else skipped.push(result.skip);
-  }
-}
-
 async function readSkills(ctx: DiscoveryContext): Promise<AdapterResult<Skill>> {
   const items: Skill[] = [];
   const skipped: Skipped[] = [];
   const warnings: string[] = [];
 
   if (includesScope(ctx, 'global')) {
-    await collectSkillFolders(join(ctx.homeDir, '.claude', 'skills'), 'global', ctx, items, skipped);
-    await collectAgentFiles(join(ctx.homeDir, '.claude', 'agents'), 'global', ctx, items, skipped);
+    await collectSkillFolders(join(ctx.homeDir, '.claude', 'skills'), 'global', 'claude', ctx, items, skipped);
+    await collectAgentFiles(join(ctx.homeDir, '.claude', 'agents'), 'global', 'claude', ctx, items, skipped);
   }
   if (includesScope(ctx, 'project')) {
-    await collectSkillFolders(join(ctx.projectRoot, '.claude', 'skills'), 'project', ctx, items, skipped);
-    await collectAgentFiles(join(ctx.projectRoot, '.claude', 'agents'), 'project', ctx, items, skipped);
+    await collectSkillFolders(join(ctx.projectRoot, '.claude', 'skills'), 'project', 'claude', ctx, items, skipped);
+    await collectAgentFiles(join(ctx.projectRoot, '.claude', 'agents'), 'project', 'claude', ctx, items, skipped);
   }
 
   items.sort((a, b) => a.path.localeCompare(b.path));

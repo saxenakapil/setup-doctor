@@ -50,4 +50,13 @@ describe('MCP-05 Server not used recently', () => {
     const model = { ...emptyModel(), agents: ['claude' as const], mcpServers: [server('linear')] };
     expect(mcp05.run({ model, config: DEFAULT_CONFIG })).toEqual([]);
   });
+
+  it('never tags the finding as shared, even when the underlying server item is (regression: this rule is claude-only, the "not used" claim is about claude sessions specifically, not a fact about the file)', () => {
+    const shared = { ...server('linear'), sharedWith: ['copilot' as const] };
+    const model = { ...emptyModel(), agents: ['claude' as const], mcpServers: [shared] };
+    const sessions = [record(20, ['Read']), record(0, ['Bash'])];
+    const findings = mcp05.run({ model, config: DEFAULT_CONFIG, sessions, now: NOW });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.sharedWith ?? []).toEqual([]);
+  });
 });

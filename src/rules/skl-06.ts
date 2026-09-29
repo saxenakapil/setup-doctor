@@ -28,7 +28,7 @@ export const skl06: Rule = {
         category: 'skills',
         severity: 'low',
         agent: skill.agent,
-        sharedWith: skill.sharedWith,
+        sharedWith: skill.sharedWith?.filter((a) => skl06.agents.includes(a)),
         file: skill.path,
         message: `Skill ${skill.name} was not used in the last 30 days (possible)`,
         why: skl06.why,

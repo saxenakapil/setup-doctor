@@ -29,7 +29,7 @@ export const mcp05: Rule = {
         category: 'mcp',
         severity: 'low',
         agent: server.agent,
-        sharedWith: server.sharedWith,
+        sharedWith: server.sharedWith?.filter((a) => mcp05.agents.includes(a)),
         message: `MCP server ${server.name} was not used in the last 30 days (possible)`,
         why: mcp05.why,
         fix: mcp05.fix,

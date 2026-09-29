@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "echo hi" }] }
+    ]
+  },
+  "permissions": {
+    "allow": ["Bash(npm test:*)"],
+    "deny": ["Bash(curl:*)"]
+  }
+}

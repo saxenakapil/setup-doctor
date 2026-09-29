@@ -1,0 +1,5 @@
+{
+  "servers": {
+    "vscode-server": { "command": "npx", "args": ["-y", "some-mcp"] }
+  }
+}

@@ -24,10 +24,11 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 | Agent | Doctor | Wrapped |
 | --- | --- | --- |
 | [Claude Code](https://claude.com/claude-code) | Full (all 26 rules) | Supported |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot) | Instructions, skills, MCP and settings/hooks rules | Not supported yet (Copilot's session log is a documented JSONL format, unlike Codex/Cursor, but was not verified against a real local install; see [`docs/notes.md`](docs/notes.md)) |
 | [Codex](https://developers.openai.com/codex) | Instructions + MCP rules | Not supported yet (no documented, parseable local session-log source was found; see [`docs/notes.md`](docs/notes.md)) |
 | [Cursor](https://cursor.com) | Instructions + MCP rules | Not supported yet (same reason) |
 
-Skills, subagents, plugins, settings and hooks checks are Claude Code-specific; those categories are simply excluded from the score for Codex/Cursor-only setups rather than counted against you.
+Skills, subagents, plugins, settings and hooks checks are Claude Code/Copilot-specific; those categories are simply excluded from the score for Codex/Cursor-only setups rather than counted against you. Copilot CLI is documented to read several of Claude Code's own files directly (`.claude/skills`, `.claude/settings.json`, and the "portable format" `.mcp.json`); when a project is detected as both agents, a real problem in one of those shared files is scored once, not once per agent, and the report notes which other agent it also affects.
 
 ## Install and run
 
@@ -48,7 +49,7 @@ Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/
 
 | Flag | Applies to | What it does |
 | --- | --- | --- |
-| `--agent claude\|codex\|cursor\|all` | all | Which agent setup to read (default: auto-detect) |
+| `--agent claude\|codex\|cursor\|copilot\|all` | all | Which agent setup to read (default: auto-detect) |
 | `--scope project\|global\|all` | doctor | Which locations to check |
 | `--format terminal\|json\|html` | doctor | Output format |
 | `--theme playful\|technical\|mix` | doctor --format html, badge, wrapped | Visual theme (default `playful`) |

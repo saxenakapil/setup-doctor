@@ -30,7 +30,7 @@ const defaultIo: Io = {
 
 const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain']);
 const FORMATS = new Set(['terminal', 'json', 'html']);
-const AGENT_VALUES = new Set(['claude', 'codex', 'cursor', 'all']);
+const AGENT_VALUES = new Set(['claude', 'codex', 'cursor', 'copilot', 'all']);
 const SCOPE_VALUES = new Set(['project', 'global', 'all']);
 const MIN_SEVERITY_VALUES = new Set(['low', 'medium', 'high', 'critical']);
 const SEVERITY_RANK: Record<Severity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
@@ -49,7 +49,7 @@ Options:
   --help       Show this help
   --version    Show the version
   --format     terminal | json | html (doctor)
-  --agent      claude | codex | cursor | all
+  --agent      claude | codex | cursor | copilot | all
   --scope      project | global | all
   --theme      playful | technical | mix (doctor --format html, badge)
   --min-severity  low | medium | high | critical (doctor; hides findings, score is unaffected)
@@ -408,7 +408,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
     io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
     return 2;
   }
-  if (agentFlag === 'codex' || agentFlag === 'cursor') {
+  if (agentFlag === 'codex' || agentFlag === 'cursor' || agentFlag === 'copilot') {
     io.out(`Wrapped is not supported for ${agentFlag} yet`);
     return 0;
   }

@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "portable-server": { "command": "npx", "args": ["-y", "portable-mcp"] }
+  }
+}

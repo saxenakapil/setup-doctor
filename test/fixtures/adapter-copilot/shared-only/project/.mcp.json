@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "s": { "command": "npx" }
+  }
+}

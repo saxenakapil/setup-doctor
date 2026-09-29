@@ -49,4 +49,13 @@ describe('SKL-06 Skill not used recently', () => {
     const sessions = [record(20, ['alpha']), record(0, ['Bash'])];
     expect(skl06.run({ model, config: DEFAULT_CONFIG, sessions, now: NOW })).toEqual([]);
   });
+
+  it('never tags the finding as shared, even when the underlying skill item is (regression: this rule is claude-only, the "not used" claim is about claude sessions specifically, not a fact about the file)', () => {
+    const shared = { ...skill('alpha'), sharedWith: ['copilot' as const] };
+    const model = { ...emptyModel(), agents: ['claude' as const], skills: [shared] };
+    const sessions = [record(20, ['Read']), record(0, ['Bash'])];
+    const findings = skl06.run({ model, config: DEFAULT_CONFIG, sessions, now: NOW });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.sharedWith ?? []).toEqual([]);
+  });
 });

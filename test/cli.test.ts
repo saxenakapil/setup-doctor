@@ -36,7 +36,7 @@ describe('cli basics', () => {
 
   it('exits 2 on an unknown --agent value', async () => {
     const c = capture();
-    expect(await main(['doctor', '--agent', 'copilot'], c.io)).toBe(2);
+    expect(await main(['doctor', '--agent', 'gemini'], c.io)).toBe(2);
   });
 
   it('exits 2 on an unknown --scope value', async () => {

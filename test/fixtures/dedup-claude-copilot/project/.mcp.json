@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "broken-server": { "command": "definitely-not-a-real-command-xyz" }
+  }
+}
