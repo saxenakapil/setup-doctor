@@ -1,7 +1,8 @@
 import { resolve } from 'node:path';
 import { ConfigParseError, loadConfigFile, mergeConfig } from './core/config.js';
-import { runDoctor } from './core/runner.js';
+import { makeDiscoveryContext, runDoctor } from './core/runner.js';
 import { writeOutputFile } from './core/output.js';
+import { applyFixes, backupFiles, planFixes } from './core/fix.js';
 import type { Agent, Scope, Severity } from './core/types.js';
 import { ALL_RULES, getRule } from './rules/index.js';
 import { renderTerminalReport } from './render/terminal.js';
@@ -61,8 +62,11 @@ Options:
   --anonymize  Hide project names everywhere, including the local report (wrapped)
   --no-cost    Remove cost figures (wrapped)
   --show-projects  Show project names on the card, default hidden (wrapped)
+  --fix        Propose safe, mechanical fixes for findings that support one (doctor)
+  --dry-run    With --fix, show diffs and change nothing (doctor)
+  --allow-dirty  With --fix, allow editing files in a project with uncommitted git changes (doctor)
 
-Status: doctor, badge and wrapped (Claude Code) are implemented.
+Status: doctor, badge, wrapped (Claude Code) and doctor --fix are implemented.
 See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
@@ -151,6 +155,68 @@ function filterByMinSeverity<T extends { severity: Severity }>(items: T[], min: 
   return items.filter((f) => SEVERITY_RANK[f.severity] >= minRank);
 }
 
+async function runFixFlow(
+  report: Awaited<ReturnType<typeof runDoctor>>,
+  flags: Record<string, string | boolean>,
+  path: string | undefined,
+  agentFlag: string,
+  scopeFlag: string,
+  homeDir: string | undefined,
+  io: Io,
+): Promise<number> {
+  const dryRun = flags['dry-run'] === true;
+  const allowDirty = flags['allow-dirty'] === true;
+  const yes = flags.yes === true;
+
+  const ctx = makeDiscoveryContext({ path, scope: scopeFlag as Scope | 'all', homeDir });
+  const { plans, skipped } = await planFixes(report.model, report.findings, {
+    ctx,
+    scopeFlag: scopeFlag as 'project' | 'global' | 'all',
+    allowDirty,
+  });
+
+  if (plans.length === 0) {
+    io.out('No safe fixes available.');
+    if (skipped.length > 0) {
+      io.out('');
+      io.out('Findings that could not be auto-fixed:');
+      for (const s of skipped) io.out(`  ${s.finding.ruleId} ${s.finding.file ?? '(no file)'}: ${s.reason}`);
+    }
+    return 0;
+  }
+
+  io.out(`${plans.length} safe fix${plans.length === 1 ? '' : 'es'} available:`);
+  io.out('');
+  for (const plan of plans) {
+    io.out(`${plan.ruleId}  ${plan.findingMessage}`);
+    io.out(plan.diff);
+    io.out('');
+  }
+
+  if (dryRun) {
+    io.out('Dry run: no files changed.');
+    return 0;
+  }
+
+  if (!yes) {
+    io.err('Refusing to apply fixes without confirmation. Pass --yes to apply, or --dry-run to only preview.');
+    return 2;
+  }
+
+  const backupPath = await backupFiles(plans, ctx.projectRoot, new Date());
+  if (backupPath) io.out(`Backed up ${plans.length} file(s) to ${backupPath}`);
+
+  await applyFixes(plans);
+
+  const after = await runDoctor({ path, agent: agentFlag as Agent | 'all', scope: scopeFlag as Scope | 'all', homeDir });
+  io.out('');
+  io.out(`Score before: ${report.score ?? 'n/a'}   Score after: ${after.score ?? 'n/a'}`);
+  io.out('Changes made:');
+  for (const plan of plans) io.out(`  ${plan.ruleId}  ${plan.displayPath}: ${plan.findingMessage}`);
+
+  return 0;
+}
+
 async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
   const { flags, positionals } = parseArgsAfterCommand(rest);
   const parsed = parseCommonFlags(flags, io);
@@ -179,6 +245,10 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
     if (report.agentsDetected.length === 0) {
       io.out('Nothing to check. Use --agent to specify an agent or pass a path to a project.');
       return 0;
+    }
+
+    if (flags.fix === true) {
+      return runFixFlow(report, flags, positionals[0], agentFlag, scopeFlag, homeDir, io);
     }
 
     const displayedFindings = filterByMinSeverity(report.findings, minSeverity);

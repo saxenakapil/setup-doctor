@@ -77,6 +77,7 @@ export const ins03: Rule = {
             ? `${cluster.length} rules repeat within ${distinctFiles[0]}`
             : `${cluster.length} rules repeat between ${distinctFiles[0]} and ${distinctFiles[1]}`;
         const allExactMatches = cluster.every((l) => l.normalized === first.normalized);
+        const fixable = distinctFiles.length === 1 && allExactMatches;
 
         findings.push({
           ruleId: 'INS-03',
@@ -88,7 +89,10 @@ export const ins03: Rule = {
           message,
           why: ins03.why,
           fix: ins03.fix,
-          fixable: distinctFiles.length === 1 && allExactMatches,
+          fixable,
+          // Keep the first occurrence, remove the rest. Only meaningful (and
+          // only set) for the same-file exact-duplicate safe-fix case.
+          fixHint: fixable ? { kind: 'remove-lines', lines: cluster.slice(1).map((l) => l.lineNumber) } : undefined,
         });
       }
     }

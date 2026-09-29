@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -314,5 +314,79 @@ describe('cli wrapped (deterministic fixture home)', () => {
     const text = c.out.join('\n');
     expect(text).not.toContain('Hello, please fix the bug');
     expect(text).not.toContain('file contents');
+  });
+});
+
+describe('cli doctor --fix', () => {
+  const CLEAN_FIXTURE = join(__dirname, 'fixtures', 'fix-mode', 'project-clean');
+  let homeDir: string;
+  let workDir: string;
+
+  beforeEach(() => {
+    homeDir = mkdtempSync(join(tmpdir(), 'setup-doctor-home-'));
+    workDir = mkdtempSync(join(tmpdir(), 'setup-doctor-fixwork-'));
+    writeFileSync(join(workDir, 'CLAUDE.md'), readFileSync(join(CLEAN_FIXTURE, 'CLAUDE.md'), 'utf8'));
+  });
+
+  afterEach(() => {
+    rmSync(homeDir, { recursive: true, force: true });
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  it('--fix --dry-run shows the diff and changes nothing', async () => {
+    const c = capture();
+    const code = await main(['doctor', workDir, '--fix', '--dry-run'], c.io, homeDir);
+    expect(code).toBe(0);
+    const text = c.out.join('\n');
+    expect(text).toContain('INS-03');
+    expect(text).toContain('-Always run the tests before committing.');
+    expect(text).toContain('Dry run: no files changed.');
+    expect(readFileSync(join(workDir, 'CLAUDE.md'), 'utf8')).toBe(readFileSync(join(CLEAN_FIXTURE, 'CLAUDE.md'), 'utf8'));
+  });
+
+  it('--fix without --yes refuses to apply and changes nothing', async () => {
+    const c = capture();
+    const code = await main(['doctor', workDir, '--fix'], c.io, homeDir);
+    expect(code).toBe(2);
+    expect(c.err.join('\n')).toContain('--yes');
+    expect(readFileSync(join(workDir, 'CLAUDE.md'), 'utf8')).toBe(readFileSync(join(CLEAN_FIXTURE, 'CLAUDE.md'), 'utf8'));
+  });
+
+  it('--fix --yes creates a backup and fixes only the safe set', async () => {
+    const c = capture();
+    const code = await main(['doctor', workDir, '--fix', '--yes'], c.io, homeDir);
+    expect(code).toBe(0);
+
+    const written = readFileSync(join(workDir, 'CLAUDE.md'), 'utf8');
+    expect(written).toBe('Always run the tests before committing.\nUse 2 space indentation.\n');
+
+    const backupDirs = readdirSync(join(workDir, '.setupdoctor-backup'));
+    expect(backupDirs).toHaveLength(1);
+    const backedUp = readFileSync(join(workDir, '.setupdoctor-backup', backupDirs[0] as string, 'project', 'CLAUDE.md'), 'utf8');
+    expect(backedUp).toBe(readFileSync(join(CLEAN_FIXTURE, 'CLAUDE.md'), 'utf8'));
+
+    const text = c.out.join('\n');
+    // The fix must actually improve the score, not just relabel it -- and
+    // the backup file left behind must never leak back into the *next*
+    // discovery pass (it did, once: SKIP_DIRS didn't exclude
+    // .setupdoctor-backup, so the pre-fix CLAUDE.md copy inside it got
+    // picked up as a second nested instruction file and re-triggered INS-03).
+    expect(text).toContain('Score before: 95   Score after: 100');
+  });
+
+  it('refuses to fix a project with a .git marker unless --allow-dirty is given', async () => {
+    writeFileSync(join(workDir, '.git'), 'marker');
+
+    const refused = capture();
+    const refusedCode = await main(['doctor', workDir, '--fix', '--yes'], refused.io, homeDir);
+    expect(refusedCode).toBe(0);
+    expect(refused.out.join('\n')).toContain('No safe fixes available');
+    expect(refused.out.join('\n')).toContain('--allow-dirty');
+    expect(readFileSync(join(workDir, 'CLAUDE.md'), 'utf8')).toBe(readFileSync(join(CLEAN_FIXTURE, 'CLAUDE.md'), 'utf8'));
+
+    const allowed = capture();
+    const allowedCode = await main(['doctor', workDir, '--fix', '--yes', '--allow-dirty'], allowed.io, homeDir);
+    expect(allowedCode).toBe(0);
+    expect(readFileSync(join(workDir, 'CLAUDE.md'), 'utf8')).toBe('Always run the tests before committing.\nUse 2 space indentation.\n');
   });
 });

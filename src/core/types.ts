@@ -148,6 +148,18 @@ export interface FindingExample {
   after: string;
 }
 
+// Machine-readable instructions for fix mode (docs/scope.md section 14),
+// populated only by rules in the fixable safe set. Not part of scope.md's
+// literal Finding sketch; added because a human-readable `fix` string isn't
+// enough for fix mode to compute an actual edit. `kind` is extensible for
+// future safe-fix rules beyond line removal.
+export interface RemoveLinesFixHint {
+  kind: 'remove-lines';
+  lines: number[]; // 1-indexed line numbers to delete, keeping everything else
+}
+
+export type FixHint = RemoveLinesFixHint;
+
 export interface Finding {
   ruleId: string;
   category: Category;
@@ -162,6 +174,7 @@ export interface Finding {
   possible?: boolean;
   tokensSaved?: number;
   fixable?: boolean;
+  fixHint?: FixHint;
 }
 
 export type PeriodKind = '7d' | '30d' | 'ytd' | 'all' | 'range';

@@ -50,5 +50,8 @@ export const DEFAULT_CONFIG: SetupDoctorConfig = {
 
 export const DISCOVERY_DEPTH_LIMIT = 5;
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.venv', 'vendor']);
+// .setupdoctor-backup holds fix mode's pre-edit copies of files (section
+// 14); it must never be descended into during discovery, or a backed-up
+// CLAUDE.md re-triggers the exact finding fix mode just fixed on the next run.
+export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.venv', 'vendor', '.setupdoctor-backup']);
 export const SECRET_ENTROPY_THRESHOLD = 3.5;

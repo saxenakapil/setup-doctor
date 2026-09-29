@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest';
+import { applyLineRemoval, renderDeletionDiff } from '../../src/core/diff.js';
+
+describe('applyLineRemoval', () => {
+  it('removes the given 1-indexed lines and keeps the rest in order', () => {
+    const text = 'a\nb\nc\nd\ne';
+    expect(applyLineRemoval(text, [2, 4])).toBe('a\nc\ne');
+  });
+
+  it('removing nothing returns the text unchanged', () => {
+    const text = 'a\nb\nc';
+    expect(applyLineRemoval(text, [])).toBe(text);
+  });
+
+  it('removing every line returns an empty string', () => {
+    expect(applyLineRemoval('a\nb', [1, 2])).toBe('');
+  });
+});
+
+describe('renderDeletionDiff', () => {
+  it('produces a unified diff with the removed line marked and surrounding context', () => {
+    const text = ['line1', 'line2', 'DUPLICATE', 'line4', 'line5'].join('\n');
+    const diff = renderDeletionDiff('CLAUDE.md', text, [3]);
+    expect(diff).toContain('--- a/CLAUDE.md');
+    expect(diff).toContain('+++ b/CLAUDE.md');
+    expect(diff).toContain('-DUPLICATE');
+    expect(diff).toContain(' line1');
+    expect(diff).toContain(' line5');
+    expect(diff).toMatch(/@@ -1,5 \+1,4 @@/);
+  });
+
+  it('the reconstructed new text (context lines minus removed) matches applyLineRemoval', () => {
+    const text = ['a', 'b', 'DUP1', 'c', 'd', 'e', 'f', 'g', 'h', 'DUP2', 'i'].join('\n');
+    const removed = [3, 10];
+    const diff = renderDeletionDiff('file.md', text, removed);
+    const keptFromDiff = diff
+      .split('\n')
+      .filter((l) => l.startsWith(' '))
+      .map((l) => l.slice(1));
+    const expectedNew = applyLineRemoval(text, removed).split('\n');
+    // Every kept context line in the diff must actually survive in the real new text.
+    for (const line of keptFromDiff) {
+      expect(expectedNew).toContain(line);
+    }
+    expect(diff).not.toContain('-a');
+    expect(diff).toContain('-DUP1');
+    expect(diff).toContain('-DUP2');
+  });
+
+  it('handles a removal at the very start of the file (no context before it)', () => {
+    const text = ['DUP', 'a', 'b', 'c'].join('\n');
+    const diff = renderDeletionDiff('f.md', text, [1]);
+    expect(diff).toContain('-DUP');
+    expect(diff).toMatch(/@@ -1,4 \+1,3 @@/);
+  });
+
+  it('handles a removal at the very end of the file (no context after it)', () => {
+    const text = ['a', 'b', 'c', 'DUP'].join('\n');
+    const diff = renderDeletionDiff('f.md', text, [4]);
+    expect(diff).toContain('-DUP');
+  });
+});
