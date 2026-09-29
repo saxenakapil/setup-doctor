@@ -12,12 +12,13 @@
 import { join } from 'node:path';
 import { estimateTokens } from '../core/tokens.js';
 import { extractInlineCodePaths, extractScriptCommands } from '../core/text.js';
-import { computeCommandFound, computeSecretLikeEnvKeys } from './mcp-common.js';
 import { toDisplayPath } from './display-path.js';
 import { isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
+import { parseMcpJsonFile } from './mcp-json-shape.js';
 import type {
   Adapter,
   AdapterResult,
+  ConfigError,
   DiscoveryContext,
   HookDef,
   InstructionFile,
@@ -131,72 +132,21 @@ async function readInstructions(ctx: DiscoveryContext): Promise<AdapterResult<In
 
 // ---- MCP servers ----
 
-interface RawMcpServer {
-  command?: string;
-  url?: string;
-  args?: string[];
-  env?: Record<string, unknown>;
-  disabled?: boolean;
-}
-
-async function readMcpFile(
-  filePath: string,
-  scopeVal: Scope,
-  ctx: DiscoveryContext,
-  items: McpServer[],
-  skipped: Skipped[],
-  warnings: string[],
-): Promise<void> {
-  const read = await readTextFileSafe(filePath);
-  if (!read.ok) {
-    if (read.reason !== 'not found') skipped.push({ path: toDisplayPath(filePath, ctx), reason: read.reason });
-    return;
-  }
-  const displayPath = toDisplayPath(filePath, ctx);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(read.text);
-  } catch (err) {
-    warnings.push(`${displayPath}: invalid JSON (${(err as Error).message})`);
-    return;
-  }
-  const mcpServers = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>).mcpServers : undefined;
-  if (!mcpServers || typeof mcpServers !== 'object') return;
-
-  for (const [name, defRaw] of Object.entries(mcpServers as Record<string, unknown>)) {
-    const def = (defRaw ?? {}) as RawMcpServer;
-    const command = typeof def.command === 'string' ? def.command : undefined;
-    const url = typeof def.url === 'string' ? def.url : undefined;
-    const disabled = def.disabled === true;
-    items.push({
-      agent: 'cursor',
-      scope: scopeVal,
-      sourcePath: displayPath,
-      name,
-      command,
-      url,
-      args: Array.isArray(def.args) ? def.args.filter((a): a is string => typeof a === 'string') : [],
-      secretLikeEnvKeys: computeSecretLikeEnvKeys(def.env),
-      disabled,
-      commandFound: disabled ? undefined : await computeCommandFound(command, url),
-    });
-  }
-}
-
 async function readMcp(ctx: DiscoveryContext): Promise<AdapterResult<McpServer>> {
   const items: McpServer[] = [];
   const skipped: Skipped[] = [];
   const warnings: string[] = [];
+  const configErrors: ConfigError[] = [];
 
   if (includesScope(ctx, 'project')) {
-    await readMcpFile(join(ctx.projectRoot, '.cursor', 'mcp.json'), 'project', ctx, items, skipped, warnings);
+    await parseMcpJsonFile(join(ctx.projectRoot, '.cursor', 'mcp.json'), 'mcpServers', 'cursor', 'project', ctx, items, skipped, warnings, configErrors);
   }
   if (includesScope(ctx, 'global')) {
-    await readMcpFile(join(ctx.homeDir, '.cursor', 'mcp.json'), 'global', ctx, items, skipped, warnings);
+    await parseMcpJsonFile(join(ctx.homeDir, '.cursor', 'mcp.json'), 'mcpServers', 'cursor', 'global', ctx, items, skipped, warnings, configErrors);
   }
 
   items.sort((a, b) => a.name.localeCompare(b.name));
-  return { items, skipped, warnings };
+  return { items, skipped, warnings, configErrors };
 }
 
 // ---- No skills, plugins or settings concept for Cursor in v1 scope ----
