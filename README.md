@@ -46,7 +46,7 @@ npx setup-doctor explain INS-02         # explain what a rule checks and how to 
 npx setup-doctor mcp                    # start an MCP server (doctor + wrapped as read-only tools)
 ```
 
-Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/plugins) from this repository's marketplace, which exposes `/setup-doctor:doctor` and `/setup-doctor:wrapped` as skills that call the same CLI.
+Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/plugins) from this repository's marketplace, which exposes `/setup-doctor:doctor` and `/setup-doctor:wrapped` as skills that call the same CLI. Cursor users can copy [`skills-cursor/`](skills-cursor/) into their own project's `.cursor/skills/` for the same two skills, adapted for Cursor; see [`docs/guide/cursor-skills.md`](docs/guide/cursor-skills.md).
 
 ### Common flags
 
@@ -105,10 +105,11 @@ Every command, with real (not fabricated) output and worked examples:
 - [`docs/guide/doctor.md`](docs/guide/doctor.md): every `doctor` flag, `--format json`'s full shape, exit codes
 - [`docs/guide/wrapped.md`](docs/guide/wrapped.md): periods, privacy flags, the card, `--format json`
 - [`docs/guide/fix-mode.md`](docs/guide/fix-mode.md): a real `--fix` walkthrough, `--dry-run` vs. applying, backups
-- [`docs/guide/ci-integration.md`](docs/guide/ci-integration.md): the two example workflows, explained
+- [`docs/guide/ci-integration.md`](docs/guide/ci-integration.md): the example GitHub Actions workflows and the pre-commit hook, explained
 - [`docs/guide/agents.md`](docs/guide/agents.md): what each agent reads, and how a shared file is scored once, not twice
-- [`docs/guide/config.md`](docs/guide/config.md): `.setupdoctorrc` fully worked, including what it does not do yet
+- [`docs/guide/config.md`](docs/guide/config.md): `.setupdoctorrc` fully worked, including `ignore` and what it does not do yet
 - [`docs/guide/mcp-server.md`](docs/guide/mcp-server.md): using Doctor and Wrapped as read-only MCP tools from Claude Desktop or another MCP client
+- [`docs/guide/cursor-skills.md`](docs/guide/cursor-skills.md): using Doctor and Wrapped as Cursor skills
 - [`docs/guide/troubleshooting.md`](docs/guide/troubleshooting.md): "nothing to check," a wrong-looking score, and more
 
 ## Docs

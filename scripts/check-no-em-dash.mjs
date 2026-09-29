@@ -9,7 +9,7 @@ import { join, relative } from 'node:path';
 const root = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const EM_DASH = String.fromCharCode(0x2014);
 
-const SCAN_ROOTS = ['src', 'scripts', 'docs', 'skills', '.claude-plugin'];
+const SCAN_ROOTS = ['src', 'scripts', 'docs', 'skills', 'skills-cursor', '.claude-plugin'];
 const SCAN_FILES = ['README.md', 'CHANGELOG.md'];
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git']);
 

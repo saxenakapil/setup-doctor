@@ -11,6 +11,7 @@
   "files": [
     "dist",
     "skills",
+    "skills-cursor",
     ".claude-plugin",
     "README.md",
     "LICENSE",
