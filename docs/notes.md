@@ -130,6 +130,13 @@ Log assumptions, deviations and open items here while building. Keep entries sho
   - **This is what surfaced the `.setupdoctorrc` bug** (see its own dated entry above): writing `config.md` meant actually running `doctor` with and without a config file and comparing the output, which is what caught it. Left as its own commit/entry rather than folded into this one, since it is a real product fix, not a documentation change.
   - `config.md` documents the fix's own known remaining gap (`agent`/`scope`/`theme`/`minSeverity` not yet used as config-file defaults) plainly, in the same page a reader would consult to use the feature, not only in this internal log.
 
+- 2026-09-29: README completeness pass (user-requested, after Phase 4): checked every command and every agent the README claims to support against the real `--help` output and `cli.ts`'s actual flag parsing, not just against memory of what was written before. Found real drift, not just missing words.
+  - **The intro blockquote never mentioned GitHub Copilot CLI at all**, despite it having more Doctor coverage than Codex/Cursor by this point (skills, MCP, settings/hooks, not just instructions+MCP). Fixed.
+  - **The "Common flags" table was missing four real, working flags entirely**: `--config <path>` (the whole point of the Phase 4 config-file fix), `--no-color`, `--tz`, and the `--fix`/`--dry-run`/`--allow-dirty` group (previously only mentioned in prose in the Privacy section, not the flags table at all).
+  - **Three existing rows had the wrong "applies to" column**, found only by grepping `cli.ts` for where each flag is actually read, not by re-reading the table: `--scope` also applies to `badge` (both go through the same `parseCommonFlags`), `--agent` applies to `doctor`/`badge`/`wrapped` (not "all" -- `rules`/`explain` never read it), and `--format` turned out to be two different flags wearing the same name: `doctor`'s (`terminal|json|html`) and a separate, more restrictive one `wrapped` parses on its own (`terminal|json`, no `html`) -- easy to miss since both are just called `--format`.
+  - `npm run smoke:publish` (the Phase 1 publish smoke test) was never listed in the README's own Development section despite being a real, useful command to know about.
+  - Method note for next time: "does the README mention X" is a much weaker check than "does `cli.ts` actually do what the README says," which is what actually caught the `--format`/`--scope`/`--agent` scoping errors here.
+
 ## Backlog / v1.1+ ideas
 
 Not in v1 scope. Recorded so Phase 1 to 8 decisions do not foreclose them.

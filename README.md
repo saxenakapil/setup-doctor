@@ -6,7 +6,7 @@ Score and improve your AI coding agent setup. Local-only, open source, free.
 
 That's this repository's own real score, produced by running `setup-doctor` against itself (see [`docs/notes.md`](docs/notes.md) for how). It is not a mockup.
 
-> `setup-doctor` audits how [Claude Code](https://claude.com/claude-code) (and, for a subset of checks, Codex and Cursor) is configured in your project and globally, gives it a 0-100 score with concrete fixes, and turns your local usage logs into a shareable "Wrapped" card. Everything runs on your machine. Nothing is ever sent anywhere.
+> `setup-doctor` audits how [Claude Code](https://claude.com/claude-code), [GitHub Copilot CLI](https://docs.github.com/en/copilot), Codex or Cursor is configured in your project and globally, gives it a 0-100 score with concrete fixes, and turns your local usage logs into a shareable "Wrapped" card. Everything runs on your machine. Nothing is ever sent anywhere.
 
 ![npx setup-doctor terminal output: score, category breakdown and findings](docs/examples/demo-terminal.png)
 
@@ -14,7 +14,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 
 ## What it does
 
-- **Doctor**: audits instruction files (`CLAUDE.md` / `AGENTS.md` / `.cursorrules`), skills, subagents, MCP servers, plugins, settings and hooks. Runs 26 rules across 6 categories and returns a score, a band (Excellent / Good / Needs work / Poor), and a specific fix for every finding.
+- **Doctor**: audits instruction files (`CLAUDE.md` / `.github/copilot-instructions.md` / `AGENTS.md` / `.cursorrules`), skills, subagents, MCP servers, plugins, settings and hooks. Runs 26 rules across 6 categories and returns a score, a band (Excellent / Good / Needs work / Poor), and a specific fix for every finding.
 - **Wrapped**: summarizes your local Claude Code session logs (sessions, active days, tokens, an API-equivalent cost estimate, streaks, busiest hour, a persona label) into a shareable card, in three visual themes and two sizes, with optional PNG export.
 - **Badge**: a static or live (shields.io endpoint) README badge showing your current score.
 - **HTML report**: a single self-contained, themed report file. No network requests, strict Content-Security-Policy, everything inlined.
@@ -37,6 +37,7 @@ No install needed, run it with `npx`:
 ```bash
 npx setup-doctor                        # audit the current project (terminal report)
 npx setup-doctor doctor --format html   # self-contained HTML report
+npx setup-doctor doctor --fix --dry-run # preview safe, mechanical fixes (nothing is changed)
 npx setup-doctor badge                  # write a README badge
 npx setup-doctor wrapped --period 30d   # usage summary + shareable card
 npx setup-doctor rules                  # list all 26 rules
@@ -49,16 +50,20 @@ Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/
 
 | Flag | Applies to | What it does |
 | --- | --- | --- |
-| `--agent claude\|codex\|cursor\|copilot\|all` | all | Which agent setup to read (default: auto-detect) |
-| `--scope project\|global\|all` | doctor | Which locations to check |
-| `--format terminal\|json\|html` | doctor | Output format |
+| `--agent claude\|codex\|cursor\|copilot\|all` | doctor, badge, wrapped | Which agent setup to read (default: auto-detect for doctor/badge, `claude` for wrapped) |
+| `--scope project\|global\|all` | doctor, badge | Which locations to check |
+| `--format` | doctor: `terminal\|json\|html`; wrapped: `terminal\|json` (no `html`) | Output format |
 | `--theme playful\|technical\|mix` | doctor --format html, badge, wrapped | Visual theme (default `playful`) |
 | `--min-severity low\|medium\|high\|critical` | doctor | Hide findings below this level (score is unaffected) |
 | `--ci --fail-under <n>` | doctor | Exit 1 if the score is below `n`, for CI gates |
 | `--period 7d\|30d\|ytd\|all\|YYYY-MM-DD:YYYY-MM-DD` | wrapped | Time window (default `30d`) |
 | `--anonymize` / `--show-projects` | wrapped | Hide project names everywhere / show them on the card (default hidden) |
 | `--no-cost` | wrapped | Remove cost figures |
+| `--tz <IANA zone>` | wrapped | Timezone for date boundaries (default: local) |
 | `--out <path>` / `--yes` | doctor, badge, wrapped | Output folder / overwrite existing files without asking |
+| `--config <path>` | doctor, badge, rules | Configuration file (default: `<path>/.setupdoctorrc`, see [`docs/guide/config.md`](docs/guide/config.md)) |
+| `--no-color` | doctor, wrapped | Disable ANSI color (also off for `--ci`, `NO_COLOR`, or non-TTY output) |
+| `--fix` / `--dry-run` / `--allow-dirty` | doctor | Propose (and optionally apply) safe, mechanical fixes; see [`docs/guide/fix-mode.md`](docs/guide/fix-mode.md) |
 
 Run `npx setup-doctor --help` for the full list.
 
@@ -106,7 +111,7 @@ Every command, with real (not fabricated) output and worked examples:
 - [`docs/scope.md`](docs/scope.md): the frozen v1 scope, data model, outputs and build plan
 - [`docs/rules.md`](docs/rules.md): every rule, with detection logic, severity and fix text
 - [`docs/themes.md`](docs/themes.md): the three visual themes' design tokens and layouts
-- [`docs/notes.md`](docs/notes.md): assumptions, deviations from the spec, and decisions made while building (including everything verified against real Claude Code / Codex / Cursor installs)
+- [`docs/notes.md`](docs/notes.md): assumptions, deviations from the spec, and decisions made while building (including everything verified against real Claude Code / Copilot / Codex / Cursor installs and documentation)
 
 ## Development
 
@@ -116,6 +121,7 @@ npm run typecheck     # tsc --noEmit
 npm test              # vitest
 npm run check          # typecheck + tests + privacy guard + version sync + em dash guard (run before every commit)
 npm run build          # bundles src/bin.ts to dist/bin.js
+npm run smoke:publish  # packs the real tarball, installs it into a scratch project, runs the installed bin
 ```
 
 The repository must stay public: Claude Code's plugin marketplace and Cowork are reported not to sync private repositories.
