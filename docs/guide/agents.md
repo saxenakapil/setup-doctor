@@ -5,7 +5,7 @@
 | Claude Code | Full (all 26 rules) | Supported |
 | Codex | Instructions + MCP servers only | Supported |
 | GitHub Copilot CLI | Instructions, skills, MCP servers, settings/hooks (no plugin concept) | Not supported yet |
-| Cursor | Instructions + MCP servers only | Not supported yet |
+| Cursor | Instructions + MCP servers only | Supported on Node 22.5+ |
 
 Skills, subagents, plugins and settings/hooks checks are Claude Code/Copilot-specific; those categories are excluded from the score for Codex/Cursor-only setups (shown as `n/a` in the category breakdown), not counted against you as if they were failing.
 
@@ -17,9 +17,9 @@ Skills, subagents, plugins and settings/hooks checks are Claude Code/Copilot-spe
 
 **Codex**: `AGENTS.md` (project); `~/.codex/config.toml`'s `[mcp_servers.*]` tables (global); for Wrapped, `~/.codex/sessions/<year>/<month>/<day>/rollout-*.jsonl`, created lazily the first time a real session runs (a fresh install, or one that has only used the separate SQLite thread-history index, has no `sessions/` directory at all yet).
 
-**Cursor**: `.cursorrules` and `.cursor/rules/*.mdc` / `*.md` (project); `.cursor/mcp.json` (project) and `~/.cursor/mcp.json` (global).
+**Cursor**: `.cursorrules` and `.cursor/rules/*.mdc` / `*.md` (project); `.cursor/mcp.json` (project) and `~/.cursor/mcp.json` (global); for Wrapped, `state.vscdb` (SQLite) under Cursor's own per-OS data directory: `cursorDiskKV`'s `composerData:*`/`bubbleId:*` keys hold real conversation and per-message token counts, cross-referenced against each workspace's own `state.vscdb` for the real project path. Reading it uses the built-in `node:sqlite` module, available from Node 22.5 onward; on an older Node, `wrapped --agent cursor` prints a clear message naming your Node version instead of running.
 
-Cursor's Doctor sources were not verified against a real local install when its adapter was built (no real config existed on the build machine); they follow the documented shape directly. Claude Code's, Codex's and Copilot's were all verified against real installs -- Codex's Wrapped support in particular required installing Codex CLI and running real sessions specifically to check, after an earlier check on a different machine had found no `sessions/` directory and concluded (wrongly, as it turned out) that Wrapped support wasn't schedulable. See [`docs/notes.md`](../notes.md) for the full history of what was and was not verified.
+Cursor's Doctor sources were not verified against a real local install when its adapter was built (no real config existed on the build machine); they follow the documented shape directly. Claude Code's, Codex's and Copilot's Doctor sources, and all three agents' Wrapped support, were verified against real installs -- Codex's and Cursor's Wrapped support in particular each required installing or querying the real local tool specifically to check, after earlier checks had wrongly concluded Wrapped support wasn't schedulable for either (Codex's `sessions/` directory turned out to be created lazily; Cursor's real, queryable schema turned out to be more tractable than third-party reverse-engineering writeups suggested). See [`docs/notes.md`](../notes.md) for the full history of what was and was not verified.
 
 ## When two agents share a file
 

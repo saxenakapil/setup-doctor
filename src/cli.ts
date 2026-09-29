@@ -16,6 +16,7 @@ import { renderWrappedTerminalReport } from './render/terminal-wrapped.js';
 import { renderLandscapeCardSvg, renderPortraitCardSvg, type CardInput } from './render/card.js';
 import { renderSvgToPng } from './render/png.js';
 import { PRICE_TABLE_AS_OF } from './wrapped/prices.js';
+import { loadSqlite } from './wrapped/sqlite-loader.js';
 import { RULES_VERSION, VERSION } from './version.js';
 
 export interface Io {
@@ -75,7 +76,7 @@ Options:
   --dry-run    With --fix, show diffs and change nothing (doctor)
   --allow-dirty  With --fix, allow editing files in a project with uncommitted git changes (doctor)
 
-Status: doctor, badge, wrapped (Claude Code, Codex) and doctor --fix are implemented.
+Status: doctor, badge, wrapped (Claude Code, Codex, Cursor with Node 22.5+) and doctor --fix are implemented.
 See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
@@ -428,8 +429,14 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
     io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
     return 2;
   }
-  if (agentFlag === 'cursor' || agentFlag === 'copilot') {
+  if (agentFlag === 'copilot') {
     io.out(`Wrapped is not supported for ${agentFlag} yet`);
+    return 0;
+  }
+  if (agentFlag === 'cursor' && !(await loadSqlite())) {
+    io.out(
+      `Wrapped for cursor needs Node 22.5 or later (it reads Cursor's local database via the built-in node:sqlite module).\nYour Node version: ${process.version}`,
+    );
     return 0;
   }
   const themeRaw = typeof flags.theme === 'string' ? flags.theme : 'playful';

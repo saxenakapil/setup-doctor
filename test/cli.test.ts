@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { main } from '../src/cli.js';
 import { VERSION } from '../src/version.js';
+import { loadSqlite } from '../src/wrapped/sqlite-loader.js';
 
 function capture() {
   const out: string[] = [];
@@ -335,11 +336,11 @@ describe('cli wrapped (deterministic fixture home)', () => {
     expect(code).toBe(2);
   });
 
-  it('prints "not supported" for cursor/copilot and exits 0', async () => {
+  it('prints "not supported" for copilot and exits 0', async () => {
     const c = capture();
-    const code = await main(['wrapped', '--agent', 'cursor', '--out', outDir], c.io, WRAPPED_HOME);
+    const code = await main(['wrapped', '--agent', 'copilot', '--out', outDir], c.io, WRAPPED_HOME);
     expect(code).toBe(0);
-    expect(c.out.join('\n')).toContain('not supported for cursor yet');
+    expect(c.out.join('\n')).toContain('not supported for copilot yet');
   });
 
   it('codex is supported: "no sessions" when the fixture home has none, not "not supported"', async () => {
@@ -348,6 +349,20 @@ describe('cli wrapped (deterministic fixture home)', () => {
     expect(code).toBe(0);
     expect(c.out.join('\n')).toContain('No sessions in this period');
     expect(c.out.join('\n')).not.toContain('not supported');
+  });
+
+  it('cursor: "no sessions" (no Cursor database in the fixture home) when node:sqlite is available, else a clear Node-version message, never a generic "not supported"', async () => {
+    const c = capture();
+    const code = await main(['wrapped', '--agent', 'cursor', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(0);
+    const text = c.out.join('\n');
+    expect(text).not.toContain('not supported for cursor yet');
+    const sqlite = await loadSqlite();
+    if (sqlite) {
+      expect(text).toContain('No sessions in this period');
+    } else {
+      expect(text).toContain('Node 22.5');
+    }
   });
 
   it('codex wrapped against a real fixture home: real numbers, the card names Codex not Claude Code, and writes card files', async () => {

@@ -3,9 +3,10 @@
 ```bash
 npx setup-doctor wrapped                    # Claude Code (default)
 npx setup-doctor wrapped --agent codex      # Codex
+npx setup-doctor wrapped --agent cursor     # Cursor (needs Node 22.5+)
 ```
 
-Summarizes your local session logs into a terminal report plus a shareable SVG/PNG card, in the style of a "year in review." Supported for Claude Code (`~/.claude/projects/**/*.jsonl`) and Codex (`~/.codex/sessions/**/*.jsonl`); see [`agents.md`](agents.md) for why Copilot and Cursor are not supported yet.
+Summarizes your local session logs into a terminal report plus a shareable SVG/PNG card, in the style of a "year in review." Supported for Claude Code (`~/.claude/projects/**/*.jsonl`), Codex (`~/.codex/sessions/**/*.jsonl`) and Cursor (`state.vscdb`, read via the built-in `node:sqlite` module, Node 22.5+ only); see [`agents.md`](agents.md) for what each one reads and why Copilot is not supported yet.
 
 A real run (against a small synthetic dataset, not anyone's real usage) looks like this:
 
@@ -45,6 +46,35 @@ Persona: Steady Builder. Steady, consistent use.
 ```
 
 Codex's "top tools" are its own event types (`CommandExecution`, and others as they show up in real usage), not Claude Code's tool names (`Bash`, `Edit`, and so on): the two agents don't share a vocabulary here, so do not expect the same labels across agents.
+
+A real Cursor run, on Node 22.5+:
+
+```
+$ npx setup-doctor wrapped --agent cursor --period all --anonymize
+Setup Doctor Wrapped  all time
+
+Sessions 5   Active days 6   Tokens 1,020,558   Est. cost* n/a
+Busiest hour 06:00   Busiest weekday Tuesday   Longest streak 1 day
+Cache hit rate 0%
+
+Top models: default (100%)
+Top tools: search_replace, edit_file_v2, read_file_v2, run_terminal_cmd, read_file
+
+Persona: Night Owl. Most of your messages land after dark.
+
+* API-equivalent estimate, not your bill. Price table as of 2026-09-29.
+  One or more models are not in the price table; their cost shows as n/a.
+```
+
+Two things are genuinely different about Cursor here, not bugs: cost shows `n/a` because Cursor's own model names (`default`, `gpt-5`, and so on, whatever Cursor's own settings have you on) are not in the price table and are not guessed at (Cursor bills through its own subscription/quota system, not a metered per-token API the way Codex does); and `Busiest hour`/`Busiest weekday`/`Longest streak` are computed at one timestamp per conversation, not per message, since Cursor's own local database does not reliably carry a per-message timestamp for anything but the shortest conversations. Every other number (sessions, tokens, tools, persona) is per-message real data, the same as Claude Code and Codex.
+
+Before Node 22.5, `wrapped --agent cursor` prints why instead of running (illustrative, since this machine runs Node 22 and cannot produce it directly):
+
+```
+$ npx setup-doctor wrapped --agent cursor
+Wrapped for cursor needs Node 22.5 or later (it reads Cursor's local database via the built-in node:sqlite module).
+Your Node version: v20.x.x
+```
 
 Two card files are always written (a 1200x630 landscape and a 1080x1350 portrait, matched to common social-share dimensions), as SVG always and as PNG too if the optional `@resvg/resvg-js` package is installed. Without it, you still get both SVGs and a note telling you PNG needs the optional package.
 

@@ -3,11 +3,15 @@
 // no skills/plugins/settings concept in this tool's v1 scope.
 //
 // No local Cursor MCP config or rules files were found to verify against on
-// 2026-09-29 (see docs/notes.md), so this follows the documented shape
-// directly. A `~/.cursor/ai-tracking/ai-code-tracking.db` SQLite file was
-// found but its schema is undocumented; parsing it is out of scope (see
-// docs/notes.md backlog) -- readSessions always yields nothing, matching
-// section 11.7's "Wrapped is not supported for cursor yet" fallback.
+// 2026-09-29 (see docs/notes.md), so those follow the documented shape
+// directly. Wrapped is different: it was verified against a real, actively
+// used Cursor install (see docs/notes.md and src/wrapped/parse-cursor.ts),
+// reading `state.vscdb`'s `cursorDiskKV` table via the optional `node:sqlite`
+// built-in (Node 22.5+; on older Node this yields nothing, the same
+// "unsupported" shape as before, see src/cli.ts's Node-version check). The
+// separate `~/.cursor/ai-tracking/ai-code-tracking.db` SQLite file has a
+// purpose-built schema but was found empty on a real, active install and is
+// not read.
 
 import { join } from 'node:path';
 import { estimateTokens } from '../core/tokens.js';
@@ -15,6 +19,8 @@ import { extractInlineCodePaths, extractScriptCommands } from '../core/text.js';
 import { toDisplayPath } from './display-path.js';
 import { isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
 import { parseMcpJsonFile } from './mcp-json-shape.js';
+import { resolvePeriodBounds } from '../wrapped/period.js';
+import { readAllSessions as readAllCursorSessions } from '../wrapped/parse-cursor.js';
 import type {
   Adapter,
   AdapterResult,
@@ -174,11 +180,9 @@ async function detect(ctx: DiscoveryContext): Promise<boolean> {
   return false;
 }
 
-async function* readSessions(_ctx: DiscoveryContext, _period: Period): AsyncGenerator<SessionRecord> {
-  // No verified readable session source for Cursor (docs/scope.md section
-  // 11.7 and 8.3: "none known"); CLI reports "not supported yet".
-  void _ctx;
-  void _period;
+async function* readSessions(ctx: DiscoveryContext, period: Period): AsyncGenerator<SessionRecord> {
+  const bounds = resolvePeriodBounds(period, new Date());
+  yield* readAllCursorSessions(ctx.homeDir, bounds);
 }
 
 export const cursorAdapter: Adapter = {
