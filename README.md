@@ -46,6 +46,14 @@ npx setup-doctor explain INS-02         # explain what a rule checks and how to 
 npx setup-doctor mcp                    # start an MCP server (doctor + wrapped as read-only tools)
 ```
 
+Or install it with Homebrew (macOS/Linux):
+
+```bash
+brew install saxenakapil/setup-doctor/setup-doctor
+```
+
+From the [`saxenakapil/homebrew-setup-doctor`](https://github.com/saxenakapil/homebrew-setup-doctor) tap: installs the same npm package `npx` would run, tracks new releases automatically (the tap's own CI bumps the formula daily against npm), and every change to the formula is built and tested end to end on real macOS and Linux runners before it merges.
+
 Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/plugins) from this repository's marketplace, which exposes `/setup-doctor:doctor` and `/setup-doctor:wrapped` as skills that call the same CLI. Cursor users can copy [`skills-cursor/`](skills-cursor/) into their own project's `.cursor/skills/` for the same two skills, adapted for Cursor; see [`docs/guide/cursor-skills.md`](docs/guide/cursor-skills.md).
 
 ### Common flags

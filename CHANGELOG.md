@@ -10,6 +10,7 @@ Built after 0.1.0 was published; not yet released to npm.
 - **MCP server mode** (`mcp` command): exposes `doctor` and `wrapped` as read-only tools over stdio for Claude Desktop and other MCP clients, reusing the same `runDoctor()`/`runWrapped()` the CLI already uses. No `--fix` equivalent. Two new runtime dependencies (`@modelcontextprotocol/sdk`, `zod`), kept external to `dist/bin.js` rather than bundled.
 - **`.setupdoctorrc`'s new `ignore` field**: glob patterns (relative to the project root) to exclude paths from discovery entirely, not just from the findings list. Applies to nested instruction-file discovery and project-scope skill/subagent folders. See [`docs/guide/config.md`](docs/guide/config.md).
 - **Cursor skills** (`skills-cursor/`): the same `doctor` and `wrapped` skills already shipped for the Claude Code plugin, adapted and ready to copy into `.cursor/skills/`. See [`docs/guide/cursor-skills.md`](docs/guide/cursor-skills.md).
+- **Homebrew tap**: `brew install saxenakapil/setup-doctor/setup-doctor`, from the separate [`saxenakapil/homebrew-setup-doctor`](https://github.com/saxenakapil/homebrew-setup-doctor) repository. Tracks new npm releases automatically via a daily autobump check.
 
 ## 0.1.0 (2026-09-29)
 
