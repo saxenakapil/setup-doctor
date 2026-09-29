@@ -170,7 +170,20 @@ export interface RemoveLinesFixHint {
   lines: number[]; // 1-indexed line numbers to delete, keeping everything else
 }
 
-export type FixHint = RemoveLinesFixHint;
+// SET-02's safe fix: a hook entry that points to a missing/non-executable
+// script is dead weight (it cannot ever run), so removing it changes no
+// real behavior. Identifies the hook structurally (event + its own command
+// string), not by line number, since fixing it means a real JSON edit
+// (removing an array element, which JSON.stringify re-serializes correctly
+// including comma placement), not a text-level line deletion. See
+// src/adapters/claude-settings-shape.ts's `removeHookFromSettingsJson`.
+export interface RemoveHookFixHint {
+  kind: 'remove-hook';
+  event: string;
+  command: string;
+}
+
+export type FixHint = RemoveLinesFixHint | RemoveHookFixHint;
 
 export interface Finding {
   ruleId: string;

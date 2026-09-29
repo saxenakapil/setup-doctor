@@ -1,6 +1,6 @@
 // Fix mode engine. See docs/scope.md section 14. Stretch goal, Phase 8.
 //
-// The safe set for v1 is INS-03 (exact duplicate lines within one file)
+// The safe set for v1 was INS-03 (exact duplicate lines within one file)
 // only. MCP-02's "identical duplicate entries within one file" cannot
 // actually occur in our normalized model: the adapter parses MCP config
 // with JSON.parse, which silently collapses duplicate object keys before
@@ -8,12 +8,15 @@
 // McpServer entry to fix. This engine is written to be rule-agnostic
 // (any Finding with `fixable` and a `fixHint` can plug in), so a future
 // rule that reaches a genuinely fixable state just needs to populate
-// `fixHint` -- but as of Phase 8, INS-03 is the only rule that does.
+// `fixHint` -- SET-02 (post-v1, docs/notes.md) is the second rule to do so,
+// removing a hook that points to a missing/non-executable script (already
+// non-functional, so removing it changes no real behavior).
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { readTextFileSafe, pathExists } from '../adapters/fs-utils.js';
-import { applyLineRemoval, renderDeletionDiff } from './diff.js';
+import { removeHookFromSettingsJson } from '../adapters/claude-settings-shape.js';
+import { applyLineRemoval, renderDeletionDiff, renderGeneralDiff } from './diff.js';
 import type { DiscoveryContext, Finding, NormalizedModel, Scope } from './types.js';
 
 export interface FixPlan {
@@ -69,8 +72,15 @@ export async function planFixes(
       continue;
     }
 
+    // Resolve scope from whichever model collection this finding's file
+    // actually belongs to (widened from instructions-only once SET-02
+    // became the second fixable rule; a hook's own scope, set by the
+    // adapter, is authoritative -- unlike instructions-only lookup, which
+    // would have silently defaulted an unmatched *global* hook's file to
+    // "project", skipping the --scope global confirmation gate below).
     const instructionFile = model.instructions.find((f) => f.path === finding.file);
-    const scope: Scope = instructionFile?.scope ?? 'project';
+    const hookFile = model.hooks.find((h) => h.sourcePath === finding.file);
+    const scope: Scope = instructionFile?.scope ?? hookFile?.scope ?? 'project';
 
     if (scope === 'global' && options.scopeFlag !== 'global') {
       skipped.push({ finding, reason: 'global file; pass --scope global to edit it' });
@@ -107,6 +117,26 @@ export async function planFixes(
         before: normalizedText,
         after,
         diff: renderDeletionDiff(finding.file, normalizedText, finding.fixHint.lines),
+        findingMessage: finding.message,
+      });
+    } else if (finding.fixHint.kind === 'remove-hook') {
+      const after = removeHookFromSettingsJson(normalizedText, finding.fixHint.event, finding.fixHint.command);
+      if (after === null) {
+        skipped.push({ finding, reason: 'could not safely remove this hook (unusual JSON formatting, or it was already gone)' });
+        continue;
+      }
+      if (after === normalizedText) {
+        skipped.push({ finding, reason: 'nothing to change' });
+        continue;
+      }
+      plans.push({
+        ruleId: finding.ruleId,
+        displayPath: finding.file,
+        absolutePath,
+        scope,
+        before: normalizedText,
+        after,
+        diff: renderGeneralDiff(finding.file, normalizedText, after),
         findingMessage: finding.message,
       });
     } else {

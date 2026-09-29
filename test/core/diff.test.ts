@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyLineRemoval, renderDeletionDiff } from '../../src/core/diff.js';
+import { applyLineRemoval, renderDeletionDiff, renderGeneralDiff } from '../../src/core/diff.js';
 
 describe('applyLineRemoval', () => {
   it('removes the given 1-indexed lines and keeps the rest in order', () => {
@@ -58,5 +58,36 @@ describe('renderDeletionDiff', () => {
     const text = ['a', 'b', 'c', 'DUP'].join('\n');
     const diff = renderDeletionDiff('f.md', text, [4]);
     expect(diff).toContain('-DUP');
+  });
+});
+
+describe('renderGeneralDiff', () => {
+  it('renders a pure deletion the same way a line-removal fix would (no spurious add)', () => {
+    const oldText = ['a', 'b', 'c'].join('\n');
+    const newText = ['a', 'c'].join('\n');
+    const diff = renderGeneralDiff('f.json', oldText, newText);
+    const body = diff.split('\n').slice(3); // skip ---/+++/@@ header lines
+    expect(diff).toContain('-b');
+    expect(diff).toContain(' a');
+    expect(diff).toContain(' c');
+    expect(body.some((l) => l.startsWith('+'))).toBe(false);
+  });
+
+  it('renders a line that only gained/lost a trailing comma as one remove + one add, not a false full-file rewrite', () => {
+    const oldText = ['{', '  "a": 1,', '  "b": 2', '}'].join('\n');
+    const newText = ['{', '  "a": 1', '}'].join('\n');
+    const diff = renderGeneralDiff('f.json', oldText, newText);
+    expect(diff).toContain('-  "a": 1,');
+    expect(diff).toContain('+  "a": 1');
+    expect(diff).toContain('-  "b": 2');
+    expect(diff).toContain(' {');
+    expect(diff).toContain(' }');
+  });
+
+  it('identical text produces no +/- lines', () => {
+    const text = 'a\nb\nc';
+    const diff = renderGeneralDiff('f.txt', text, text);
+    const body = diff.split('\n').slice(3); // skip ---/+++/@@ header lines
+    expect(body.every((l) => l.startsWith(' '))).toBe(true);
   });
 });

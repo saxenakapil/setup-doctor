@@ -1,10 +1,13 @@
-// A unified diff renderer specialized for deletion-only changes: every
-// v1 safe fix (docs/scope.md section 14) only removes lines, never adds or
-// reorders them, so `newLines` is always a subsequence of `oldLines` in the
-// same order. That makes a general diff algorithm (Myers, LCS, ...)
-// unnecessary: a single two-pointer pass finds exactly which old lines were
-// dropped. Not a general-purpose diff; would need extending before use on
-// any fix that adds or reorders content.
+// Two diff renderers. `renderDeletionDiff`/`applyLineRemoval` are
+// specialized for deletion-only changes: every v1 safe fix (docs/scope.md
+// section 14) only removed lines, never added or reordered them, so
+// `newLines` was always a subsequence of `oldLines` in the same order,
+// letting a single two-pointer pass find exactly which old lines were
+// dropped, no general diff algorithm needed. `renderGeneralDiff` (added for
+// SET-02's fix, see below) is the real LCS diff this file's own comment
+// once said would be needed "before use on any fix that adds or reorders
+// content" -- that day came once a fix needed to re-serialize JSON rather
+// than delete whole lines.
 
 const CONTEXT_LINES = 3;
 
@@ -66,4 +69,59 @@ export function applyLineRemoval(oldText: string, removedLineNumbers: number[]):
   const removedSet = new Set(removedLineNumbers);
   const lines = oldText.split('\n');
   return lines.filter((_, idx) => !removedSet.has(idx + 1)).join('\n');
+}
+
+// General-purpose diff, added for SET-02's fix (docs/notes.md): unlike
+// every fix above, removing a hook from JSON means re-serializing the
+// file, which can also change one line's trailing comma, not just delete
+// lines. A plain LCS line diff (small, O(n*m), fine for the small config
+// files every fix in this project touches) renders that correctly as an
+// add+remove pair instead of forcing it through the deletion-only path.
+
+interface DiffOp {
+  type: 'same' | 'add' | 'remove';
+  line: string;
+}
+
+function computeLcsDiff(oldLines: string[], newLines: string[]): DiffOp[] {
+  const n = oldLines.length;
+  const m = newLines.length;
+  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      lcs[i]![j] = oldLines[i] === newLines[j] ? (lcs[i + 1]![j + 1] as number) + 1 : Math.max(lcs[i + 1]![j] as number, lcs[i]![j + 1] as number);
+    }
+  }
+  const ops: DiffOp[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (oldLines[i] === newLines[j]) {
+      ops.push({ type: 'same', line: oldLines[i] as string });
+      i++;
+      j++;
+    } else if ((lcs[i + 1]![j] as number) >= (lcs[i]![j + 1] as number)) {
+      ops.push({ type: 'remove', line: oldLines[i] as string });
+      i++;
+    } else {
+      ops.push({ type: 'add', line: newLines[j] as string });
+      j++;
+    }
+  }
+  while (i < n) ops.push({ type: 'remove', line: oldLines[i++] as string });
+  while (j < m) ops.push({ type: 'add', line: newLines[j++] as string });
+  return ops;
+}
+
+/** Unified diff between two arbitrary texts (additions and deletions both), for fixes that re-serialize a file rather than only delete lines from it. */
+export function renderGeneralDiff(displayPath: string, oldText: string, newText: string): string {
+  const oldLines = oldText.split('\n');
+  const newLines = newText.split('\n');
+  const ops = computeLcsDiff(oldLines, newLines);
+  const out = [`--- a/${displayPath}`, `+++ b/${displayPath}`, `@@ -1,${oldLines.length} +1,${newLines.length} @@`];
+  for (const op of ops) {
+    const prefix = op.type === 'same' ? ' ' : op.type === 'remove' ? '-' : '+';
+    out.push(`${prefix}${op.line}`);
+  }
+  return out.join('\n');
 }

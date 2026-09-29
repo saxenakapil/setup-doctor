@@ -12,6 +12,86 @@ function looksLikePath(token: string): boolean {
   return token.startsWith('./') || token.startsWith('../') || token.startsWith('/') || token.startsWith('~/') || token.includes('/');
 }
 
+/**
+ * Tries indent widths that real settings.json files use (2 spaces, 4
+ * spaces, a tab) and returns the one that reproduces `rawText` exactly via
+ * `JSON.stringify`. Null when none match: an unusual formatting style
+ * (inconsistent indentation, non-standard key order, trailing comments via
+ * some non-standard parser, etc.) that this function cannot faithfully
+ * reproduce, so a fix must not attempt to rewrite it (see hard rule: never
+ * change more than the user asked for).
+ */
+function detectJsonIndent(rawText: string, parsed: unknown): string | number | null {
+  const trimmed = rawText.replace(/\s+$/, '');
+  for (const candidate of [2, 4, '\t'] as const) {
+    if (JSON.stringify(parsed, null, candidate) === trimmed) return candidate;
+  }
+  return null;
+}
+
+/**
+ * SET-02's fix: removes one hook entry (identified by its event and its own
+ * command string) from a real, structurally-parsed settings.json object,
+ * then re-serializes it. A real JSON edit, not text-level line surgery: no
+ * risk of a dangling trailing comma the way blind line deletion inside a
+ * JSON array would have. Returns null when the fix cannot be applied
+ * safely: invalid JSON, the hook is not found, or (via `detectJsonIndent`)
+ * the file's own formatting cannot be reproduced exactly, meaning
+ * re-serializing it would silently change parts of the file the caller
+ * never asked to touch.
+ */
+export function removeHookFromSettingsJson(rawText: string, event: string, command: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const obj = parsed as Record<string, unknown>;
+  const hooksObj = obj.hooks;
+  if (!hooksObj || typeof hooksObj !== 'object') return null;
+  const groups = (hooksObj as Record<string, unknown>)[event];
+  if (!Array.isArray(groups)) return null;
+
+  let removed = false;
+  const newGroups = groups
+    .map((group) => {
+      if (!group || typeof group !== 'object') return group;
+      const groupObj = group as Record<string, unknown>;
+      const hooksArr = groupObj.hooks;
+      if (Array.isArray(hooksArr)) {
+        const filtered = hooksArr.filter((h) => {
+          const match = (h as Record<string, unknown> | undefined)?.command === command;
+          if (match) removed = true;
+          return !match;
+        });
+        if (filtered.length === hooksArr.length) return group;
+        return filtered.length === 0 ? null : { ...groupObj, hooks: filtered };
+      }
+      if (typeof groupObj.command === 'string' && groupObj.command === command) {
+        removed = true;
+        return null;
+      }
+      return group;
+    })
+    .filter((g) => g !== null);
+
+  if (!removed) return null;
+
+  const newHooksObj = { ...(hooksObj as Record<string, unknown>) };
+  if (newGroups.length === 0) delete newHooksObj[event];
+  else newHooksObj[event] = newGroups;
+
+  const newObj = { ...obj };
+  if (Object.keys(newHooksObj).length === 0) delete newObj.hooks;
+  else newObj.hooks = newHooksObj;
+
+  const indent = detectJsonIndent(rawText, parsed);
+  if (indent === null) return null;
+  return JSON.stringify(newObj, null, indent) + (rawText.endsWith('\n') ? '\n' : '');
+}
+
 export async function computeHookScriptCheck(command: string, ctx: DiscoveryContext): Promise<HookDef['scriptCheck']> {
   const firstToken = command.trim().split(/\s+/)[0];
   if (!firstToken || !looksLikePath(firstToken)) return undefined;

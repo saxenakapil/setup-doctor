@@ -7,6 +7,7 @@ import { buildModel, detectAgents, makeDiscoveryContext, runRules } from '../../
 import { DEFAULT_CONFIG } from '../../src/core/defaults.js';
 
 const CLEAN_FIXTURE = join(__dirname, '..', 'fixtures', 'fix-mode', 'project-clean');
+const BROKEN_HOOK_FIXTURE = join(__dirname, '..', 'fixtures', 'fix-mode', 'project-broken-hook');
 const NO_HOME = join(__dirname, '..', 'fixtures', '__no_home__');
 
 describe('isProjectDirty', () => {
@@ -126,6 +127,63 @@ describe('backupFiles and applyFixes', () => {
   it('backupFiles returns null and writes nothing when there is nothing to fix', async () => {
     const backupPath = await backupFiles([], workDir, new Date());
     expect(backupPath).toBeNull();
+  });
+});
+
+describe('planFixes: SET-02 broken hook removal (real JSON edit, not line-removal)', () => {
+  async function loadBrokenHookFixture() {
+    const ctx = makeDiscoveryContext({ path: BROKEN_HOOK_FIXTURE, homeDir: NO_HOME });
+    const agents = await detectAgents(ctx, 'auto');
+    const model = await buildModel(ctx, agents);
+    const { kept } = runRules(model, DEFAULT_CONFIG);
+    return { ctx, model, findings: kept };
+  }
+
+  it('plans a real JSON edit that removes the broken hook and keeps its working sibling', async () => {
+    const { ctx, model, findings } = await loadBrokenHookFixture();
+    const { plans, skipped } = await planFixes(model, findings, { ctx, scopeFlag: 'all', allowDirty: false });
+
+    const plan = plans.find((p) => p.ruleId === 'SET-02');
+    expect(plan).toBeDefined();
+    const after = JSON.parse(plan!.after);
+    expect(after.hooks.PreToolUse).toHaveLength(1);
+    expect(after.hooks.PreToolUse[0].matcher).toBe('Edit');
+    expect(plan!.diff).toContain('missing.sh');
+    expect(skipped.every((s) => s.finding.ruleId !== 'SET-02')).toBe(true);
+  });
+
+  it('the plan\'s "after" is real, re-parseable JSON, not line-spliced text', async () => {
+    const { ctx, model, findings } = await loadBrokenHookFixture();
+    const { plans } = await planFixes(model, findings, { ctx, scopeFlag: 'all', allowDirty: false });
+    const plan = plans.find((p) => p.ruleId === 'SET-02')!;
+    expect(() => JSON.parse(plan.after)).not.toThrow();
+  });
+
+  it('applyFixes writes real, valid, re-readable JSON to disk, backed up first', async () => {
+    const workDir = mkdtempSync(join(tmpdir(), 'setup-doctor-apply-hook-'));
+    try {
+      const { mkdirSync } = await import('node:fs');
+      mkdirSync(join(workDir, '.claude'), { recursive: true });
+      writeFileSync(join(workDir, '.claude', 'settings.json'), readFileSync(join(BROKEN_HOOK_FIXTURE, '.claude', 'settings.json'), 'utf8'));
+
+      const ctx = makeDiscoveryContext({ path: workDir, homeDir: NO_HOME });
+      const agents = await detectAgents(ctx, 'auto');
+      const model = await buildModel(ctx, agents);
+      const { kept } = runRules(model, DEFAULT_CONFIG);
+      const { plans } = await planFixes(model, kept, { ctx, scopeFlag: 'all', allowDirty: false });
+      const plan = plans.find((p) => p.ruleId === 'SET-02')!;
+
+      const backupPath = await backupFiles(plans, workDir, new Date('2026-01-01T00:00:00.000Z'));
+      const backedUp = JSON.parse(readFileSync(join(backupPath as string, 'project', '.claude', 'settings.json'), 'utf8'));
+      expect(backedUp.hooks.PreToolUse).toHaveLength(2); // the pre-fix original, both hooks present
+
+      await applyFixes([plan]);
+      const written = JSON.parse(readFileSync(join(workDir, '.claude', 'settings.json'), 'utf8'));
+      expect(written.hooks.PreToolUse).toHaveLength(1);
+      expect(written.hooks.PreToolUse[0].matcher).toBe('Edit');
+    } finally {
+      rmSync(workDir, { recursive: true, force: true });
+    }
   });
 });
 

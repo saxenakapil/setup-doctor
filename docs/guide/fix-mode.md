@@ -4,7 +4,12 @@
 
 ## The safe set
 
-Not every finding is fixable. As of this version, the only automatically-fixable rule is **INS-03** (an exact duplicate line repeated within one instruction file). Everything else needs a human judgment call (what MCP command should this actually be? is this permission rule intentional?), so `setup-doctor` will tell you what is wrong and how to fix it, but will not guess for you.
+Not every finding is fixable. Two rules currently qualify:
+
+- **INS-03**: an exact duplicate line repeated within one instruction file.
+- **SET-02**: a hook that points to a missing or non-executable script. It cannot run either way, so removing it changes no real behavior; only offered for the shared `.claude/settings.json`/`settings.local.json` shape, not Copilot CLI's own native `.github/hooks/*.json` format.
+
+Everything else needs a human judgment call (what MCP command should this actually be? is this permission rule intentional? which current model should replace a retired one?), so `setup-doctor` will tell you what is wrong and how to fix it, but will not guess for you.
 
 ## Preview a fix: `--dry-run`
 
@@ -80,6 +85,46 @@ $ npx setup-doctor --fix --yes --allow-dirty
 
 Global-scope files (your per-user config, outside any git repo) are not affected by this check.
 
-## Why the safe set is so small
+## SET-02: removing a broken hook
 
-Expanding it is tracked in [`docs/notes.md`](../notes.md)'s backlog, not silently deferred: candidates include swapping a retired model name (FRS-02), rewrapping an out-of-range skill description (SKL-02), and disabling a server nobody has used recently (MCP-04), each only after it proves genuinely safe and mechanical to automate, the same bar INS-03 had to clear.
+```bash
+$ npx setup-doctor --fix --dry-run
+1 safe fix available:
+
+SET-02  Hook PreToolUse in .claude/settings.json points to /path/to/project/scripts/missing.sh which is missing or not executable
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -1,16 +1,7 @@
+ {
+   "hooks": {
+     "PreToolUse": [
+       {
+-        "matcher": "Bash",
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "./scripts/missing.sh"
+-          }
+-        ]
+-      },
+-      {
+         "matcher": "Edit",
+         "hooks": [
+           {
+             "type": "command",
+             "command": "npx prettier --write ."
+           }
+         ]
+       }
+     ]
+   }
+ }
+
+Dry run: no files changed.
+```
+
+Unlike INS-03, this is a real JSON edit, not a text-level line deletion: the file is parsed, the one broken hook is removed structurally, and the result is re-serialized, so a working sibling hook in the same file (`Edit` above) is left untouched and the file stays valid JSON. If your `settings.json`'s formatting can't be reproduced exactly on re-serialization (unusual indentation, for example), the fix is skipped rather than risk silently reformatting parts of the file you never asked to change.
+
+## Why the safe set is small
+
+Every rule is checked against the same bar INS-03 and SET-02 both had to clear: the fix must be genuinely mechanical, with no judgment call about *what* to put in place of the problem, only removing or normalizing something already broken. Most findings fail that bar (a wrong MCP command needs a human to say what the right one is; a too-short skill description needs a human to write more; a permission rule might be intentional even if it looks broad), so `setup-doctor` explains the problem and leaves the decision to you rather than guessing.
