@@ -1,9 +1,53 @@
 {
   "name": "setup-doctor",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Score and improve your AI coding agent setup. Local-only, open source.",
   "license": "MIT",
   "author": "Kapil Saxena",
-  "keywords": ["claude-code", "ai-agents", "audit", "cli"],
-  "files": ["README.md"]
+  "type": "module",
+  "bin": {
+    "setup-doctor": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    ".claude-plugin",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saxenakapil/setup-doctor.git"
+  },
+  "homepage": "https://github.com/saxenakapil/setup-doctor#readme",
+  "bugs": {
+    "url": "https://github.com/saxenakapil/setup-doctor/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "ai-agents",
+    "audit",
+    "cli",
+    "claude-plugin",
+    "developer-tools"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check:network": "node scripts/check-no-network.mjs",
+    "check:version": "node scripts/check-version-sync.mjs",
+    "check": "npm run typecheck && npm test && npm run check:network && npm run check:version",
+    "prepublishOnly": "npm run check && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  }
 }

@@ -1,0 +1,12 @@
+{
+  "name": "setup-doctor",
+  "version": "0.0.2",
+  "description": "Score and improve your AI coding agent setup. Audits CLAUDE.md, skills, MCP servers and plugins, and shows a shareable usage summary. Local-only.",
+  "author": {
+    "name": "Kapil Saxena"
+  },
+  "homepage": "https://github.com/saxenakapil/setup-doctor",
+  "repository": "https://github.com/saxenakapil/setup-doctor",
+  "license": "MIT",
+  "keywords": ["claude-code", "audit", "developer-tools", "setup", "wrapped"]
+}

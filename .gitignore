@@ -1,2 +1,11 @@
 node_modules
+dist
+coverage
+*.tgz
 .DS_Store
+.setupdoctor-backup
+setup-doctor-report.html
+setup-doctor-badge.json
+setup-doctor-badge.svg
+setup-doctor-wrapped-*.svg
+setup-doctor-wrapped-*.png

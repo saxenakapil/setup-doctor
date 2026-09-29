@@ -1,0 +1,14 @@
+{
+  "name": "setup-doctor",
+  "owner": {
+    "name": "Kapil Saxena"
+  },
+  "plugins": [
+    {
+      "name": "setup-doctor",
+      "source": "./",
+      "description": "Score and improve your AI coding agent setup. Local-only, open source.",
+      "version": "0.0.2"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+# Example: publish a live (endpoint style) Setup Doctor badge from your own CI.
+# Copy this file to .github/workflows/setup-doctor-badge.yml in the repo you want to badge.
+# The badge JSON is published to a branch named "badges", and shields.io reads it from
+# https://raw.githubusercontent.com/<owner>/<repo>/badges/setup-doctor-badge.json
+name: setup-doctor badge
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx setup-doctor@latest badge --endpoint --out badge-out --yes
+      - name: Publish the badge file to the badges branch
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan badges
+          git rm -rf . > /dev/null 2>&1 || true
+          cp badge-out/setup-doctor-badge.json .
+          git add setup-doctor-badge.json
+          git commit -m "Update Setup Doctor badge"
+          git push -f origin badges
