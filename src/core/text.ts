@@ -162,3 +162,35 @@ export function extractRelativeRefs(text: string): TextRelativeRef[] {
   });
   return refs;
 }
+
+/** Inline-code (backtick) spans only, for INS-06. No markdown links. */
+export function extractInlineCodePaths(text: string): TextRelativeRef[] {
+  const lines = text.split('\n');
+  const refs: TextRelativeRef[] = [];
+  lines.forEach((line, idx) => {
+    INLINE_CODE_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = INLINE_CODE_RE.exec(line))) {
+      const target = (m[1] ?? '').trim();
+      if (isCandidateRelativePath(target)) refs.push({ target, line: idx + 1 });
+    }
+  });
+  return refs;
+}
+
+const SCRIPT_COMMAND_RE = /\b(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?([A-Za-z0-9_:-]+)/g;
+
+/** `npm run <script>`, `pnpm <script>`, `yarn <script>` style commands, for INS-06. */
+export function extractScriptCommands(text: string): TextRelativeRef[] {
+  const lines = text.split('\n');
+  const refs: TextRelativeRef[] = [];
+  lines.forEach((line, idx) => {
+    SCRIPT_COMMAND_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SCRIPT_COMMAND_RE.exec(line))) {
+      const script = m[1];
+      if (script && script !== 'run') refs.push({ target: script, line: idx + 1 });
+    }
+  });
+  return refs;
+}

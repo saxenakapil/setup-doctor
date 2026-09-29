@@ -71,7 +71,7 @@ describe('claude-code adapter: typical project', () => {
     expect(beta?.kind).toBe('skill');
     expect(beta?.scope).toBe('project');
     expect(beta?.frontmatterValid).toBe(true);
-    expect(beta?.relativeRefs).toEqual([{ target: 'reference.md', line: 6 }]);
+    expect(beta?.relativeRefs).toEqual([{ target: 'reference.md', line: 6, exists: true }]);
 
     const alpha = byName.get('alpha');
     expect(alpha?.kind).toBe('skill');

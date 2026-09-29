@@ -13,15 +13,27 @@ export interface SourceRef {
   sizeBytes: number;
 }
 
+// Path or script references found in a project instruction file (INS-06).
+// Adapters resolve `exists` (FS access) so INS-06 itself stays a pure
+// function of the model.
+export interface StaleReference {
+  target: string;
+  line: number;
+  kind: 'path' | 'script';
+  exists: boolean;
+}
+
 export interface InstructionFile extends SourceRef {
   text: string;
   lines: string[];
   estTokens: number;
+  staleReferences: StaleReference[];
 }
 
 export interface RelativeRef {
   target: string;
   line: number;
+  exists: boolean;
 }
 
 export interface Skill extends SourceRef {
@@ -160,6 +172,8 @@ export interface NormalizedModel {
   plugins: PluginInfo[];
   hooks: HookDef[];
   permissions: PermissionRule[];
+  // Build manifest filenames present at the project root (INS-07), e.g. "package.json".
+  buildManifests: string[];
   skipped: Skipped[];
   warnings: string[];
 }
@@ -191,5 +205,10 @@ export interface Rule {
   heuristic: boolean;
   needsSessions?: boolean;
   fixable?: boolean;
+  // Static metadata for `setup-doctor rules` / `explain`, kept alongside the
+  // rule so this text lives in one place instead of scattered fix strings.
+  severityLabel: string;
+  why: string;
+  fix: string;
   run(ctx: RuleContext): Finding[];
 }

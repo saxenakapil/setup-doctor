@@ -1,5 +1,7 @@
+import { ConfigParseError, loadConfigFile, mergeConfig } from './core/config.js';
 import { runDoctor } from './core/runner.js';
 import type { Agent, Scope } from './core/types.js';
+import { ALL_RULES, getRule } from './rules/index.js';
 import { RULES_VERSION, VERSION } from './version.js';
 
 export interface Io {
@@ -34,9 +36,9 @@ Options:
   --agent      claude | codex | cursor | all
   --scope      project | global | all
 
-Status: doctor supports discovery and --format json. Rule findings, scoring,
-the terminal report and other commands are still in progress.
-See docs/scope.md for the full plan.`;
+Status: doctor runs discovery and the instruction/skill rules, and prints
+--format json. Scoring, the terminal/html report, wrapped and badge are
+still in progress. See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
   const flags: Record<string, string | boolean> = {};
@@ -126,6 +128,54 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
   }
 }
 
+async function runRulesCommand(io: Io): Promise<number> {
+  let config;
+  try {
+    const { raw } = await loadConfigFile(process.cwd());
+    config = mergeConfig(raw, {});
+  } catch (err) {
+    if (err instanceof ConfigParseError) {
+      io.err(err.message);
+      return 2;
+    }
+    throw err;
+  }
+  const disabled = new Set(config.disabledRules.map((r) => r.toUpperCase()));
+  const lines = ['ID       CATEGORY      SEVERITY        ENABLED'];
+  for (const rule of ALL_RULES) {
+    const enabled = disabled.has(rule.id.toUpperCase()) ? 'no' : 'yes';
+    lines.push(`${rule.id.padEnd(8)} ${rule.category.padEnd(13)} ${rule.severityLabel.padEnd(15)} ${enabled}`);
+  }
+  io.out(lines.join('\n'));
+  return 0;
+}
+
+async function runExplainCommand(rest: string[], io: Io): Promise<number> {
+  const ruleId = rest[0];
+  if (!ruleId) {
+    io.err('Usage: setup-doctor explain <RULE_ID>');
+    return 2;
+  }
+  const rule = getRule(ruleId);
+  if (!rule) {
+    io.err(`Unknown rule: ${ruleId}\nRun setup-doctor rules to list valid IDs.`);
+    return 2;
+  }
+  io.out(
+    [
+      `${rule.id}  ${rule.title}`,
+      `Category: ${rule.category}   Severity: ${rule.severityLabel}   Heuristic: ${rule.heuristic ? 'yes' : 'no'}`,
+      '',
+      'Why it matters:',
+      `  ${rule.why}`,
+      '',
+      'Fix:',
+      `  ${rule.fix}`,
+    ].join('\n'),
+  );
+  return 0;
+}
+
 /**
  * Entry point used by src/bin.ts and by tests.
  * Returns the process exit code. Exit codes: 0 ok, 1 score below threshold (CI),
@@ -161,6 +211,12 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
 
   if (command === 'doctor') {
     return runDoctorCommand(rest, io, homeDirOverride);
+  }
+  if (command === 'rules') {
+    return runRulesCommand(io);
+  }
+  if (command === 'explain') {
+    return runExplainCommand(rest, io);
   }
 
   io.err(`setup-doctor ${command}: not implemented yet. See docs/scope.md.`);

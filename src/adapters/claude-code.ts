@@ -4,7 +4,7 @@
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { DISCOVERY_DEPTH_LIMIT } from '../core/defaults.js';
 import { estimateTokens } from '../core/tokens.js';
-import { extractRelativeRefs } from '../core/text.js';
+import { extractInlineCodePaths, extractRelativeRefs, extractScriptCommands } from '../core/text.js';
 import type {
   Adapter,
   AdapterResult,
@@ -15,10 +15,12 @@ import type {
   Period,
   PermissionRule,
   PluginInfo,
+  RelativeRef,
   Scope,
   SessionRecord,
   Skill,
   Skipped,
+  StaleReference,
 } from '../core/types.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { findNestedFiles, isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
@@ -81,11 +83,44 @@ async function resolveImports(
   return out.join('\n');
 }
 
+async function readPackageScripts(ctx: DiscoveryContext): Promise<Set<string> | null> {
+  const read = await readTextFileSafe(join(ctx.projectRoot, 'package.json'));
+  if (!read.ok) return null;
+  try {
+    const parsed = JSON.parse(read.text) as Record<string, unknown>;
+    if (parsed.scripts && typeof parsed.scripts === 'object') {
+      return new Set(Object.keys(parsed.scripts as Record<string, unknown>));
+    }
+  } catch {
+    // malformed package.json: script references are unverifiable, not reported stale
+  }
+  return null;
+}
+
+async function computeStaleReferences(
+  text: string,
+  ctx: DiscoveryContext,
+  packageScripts: Set<string> | null,
+): Promise<StaleReference[]> {
+  const out: StaleReference[] = [];
+  for (const ref of extractInlineCodePaths(text)) {
+    const exists = await pathExists(join(ctx.projectRoot, ref.target));
+    out.push({ target: ref.target, line: ref.line, kind: 'path', exists });
+  }
+  if (packageScripts) {
+    for (const ref of extractScriptCommands(text)) {
+      out.push({ target: ref.target, line: ref.line, kind: 'script', exists: packageScripts.has(ref.target) });
+    }
+  }
+  return out;
+}
+
 async function buildInstructionFile(
   scopeVal: Scope,
   absPath: string,
   ctx: DiscoveryContext,
   warnings: string[],
+  packageScripts: Set<string> | null,
 ): Promise<{ item: InstructionFile } | { skip: Skipped } | null> {
   const read = await readTextFileSafe(absPath);
   if (!read.ok) {
@@ -110,6 +145,7 @@ async function buildInstructionFile(
       text: normalized,
       lines: normalized.split('\n'),
       estTokens: estimateTokens(normalized),
+      staleReferences: scopeVal === 'project' ? await computeStaleReferences(normalized, ctx, packageScripts) : [],
     },
   };
 }
@@ -133,10 +169,12 @@ async function readInstructions(ctx: DiscoveryContext): Promise<AdapterResult<In
     }
   }
 
+  const packageScripts = includesScope(ctx, 'project') ? await readPackageScripts(ctx) : null;
+
   for (const { path, scope } of candidates) {
     if (seen.has(path)) continue;
     seen.add(path);
-    const result = await buildInstructionFile(scope, path, ctx, warnings);
+    const result = await buildInstructionFile(scope, path, ctx, warnings, packageScripts);
     if (!result) continue;
     if ('item' in result) items.push(result.item);
     else skipped.push(result.skip);
@@ -172,6 +210,10 @@ async function readSkillLikeFile(
   const fm = parseFrontmatter(text);
   const check = frontmatterCheck(fm);
   const lines = text.split('\n');
+  const relativeRefs: RelativeRef[] = [];
+  for (const ref of extractRelativeRefs(text)) {
+    relativeRefs.push({ ...ref, exists: await pathExists(join(folderPath, ref.target)) });
+  }
   return {
     item: {
       agent: 'claude',
@@ -186,7 +228,7 @@ async function readSkillLikeFile(
       frontmatterError: check.error,
       lineCount: lines.length,
       text,
-      relativeRefs: extractRelativeRefs(text),
+      relativeRefs,
     },
   };
 }

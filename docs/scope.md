@@ -242,7 +242,15 @@ type Category = 'instructions' | 'skills' | 'mcp' | 'plugins' | 'settings' | 'fr
 
 interface SourceRef { agent: Agent; scope: Scope; path: string; sizeBytes: number }
 
-interface InstructionFile extends SourceRef { text: string; lines: string[]; estTokens: number }
+// Path or script token found in a project instruction file (INS-06). The
+// adapter resolves `exists` (it already does filesystem reads) so the rule
+// stays a pure function of the model.
+interface StaleReference { target: string; line: number; kind: 'path' | 'script'; exists: boolean }
+
+interface InstructionFile extends SourceRef {
+  text: string; lines: string[]; estTokens: number;
+  staleReferences: StaleReference[];   // project-scope files only; see INS-06
+}
 
 interface Skill extends SourceRef {
   kind: 'skill' | 'agent';      // 'agent' for subagent files, section 8.1
@@ -253,7 +261,7 @@ interface Skill extends SourceRef {
   frontmatterError?: string;
   lineCount: number;
   text: string;
-  relativeRefs: { target: string; line: number }[];   // relative links and paths found in the body
+  relativeRefs: { target: string; line: number; exists: boolean }[];   // relative links and paths found in the body; exists resolved by the adapter (SKL-05)
 }
 
 interface McpServer {
