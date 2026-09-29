@@ -2,16 +2,29 @@
 
 All notable changes are listed here. The format follows Keep a Changelog and the project uses semantic versioning. The rule set has its own version (`rulesVersion`), listed separately below.
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-09-29)
 
-Core product and v1 scope complete (Phases 1-8 of `docs/scope.md`).
+First real release (0.0.1 was a placeholder to claim the package name; see below). Covers v1 scope (Phases 1-8 of `docs/scope.md`) plus everything built since.
 
-- **Doctor**: full discovery and scoring for Claude Code (instructions, skills, subagents, MCP servers, plugins, settings/hooks), partial discovery for GitHub Copilot CLI (instructions, skills, MCP servers, settings/hooks -- no plugin concept), and partial discovery for Codex and Cursor (instructions, MCP servers -- those agents have no skills/plugins/settings concept in v1). All 26 rules implemented. A project reading from a file two agents share (Copilot CLI is documented to read several of Claude Code's own files directly) is scored once per real problem, not once per agent; the report notes which other agent it also affects. Terminal report (with ANSI color, respecting `NO_COLOR`/`--no-color`/`--ci`/non-TTY), self-contained themed HTML report, JSON output, static and shields.io-endpoint badges.
-- **Wrapped**: usage summary for Claude Code from local session logs (streaming JSONL parser, metrics, persona labels, price-table cost estimate), rendered as a shareable card in three themes and two sizes with optional PNG export. Codex and Cursor Wrapped report "not supported yet" -- no documented, parseable local session-log source was found for either on real installs (see `docs/notes.md`).
+### v1 scope
+
+- **Doctor**: full discovery and scoring for Claude Code (instructions, skills, subagents, MCP servers, plugins, settings/hooks), partial discovery for GitHub Copilot CLI (instructions, skills, MCP servers, settings/hooks -- no plugin concept), and partial discovery for Codex and Cursor (instructions, MCP servers -- those agents have no plugins/settings concept in this tool's scope). All 26 v1 rules implemented (29 as of this release; see Rule set 1.1.0 below). A project reading from a file two agents share (Copilot CLI is documented to read several of Claude Code's own files directly) is scored once per real problem, not once per agent; the report notes which other agent it also affects. Terminal report (with ANSI color, respecting `NO_COLOR`/`--no-color`/`--ci`/non-TTY), self-contained themed HTML report, JSON output, static and shields.io-endpoint badges.
+- **Wrapped**: usage summary for Claude Code from local session logs (streaming JSONL parser, metrics, persona labels, price-table cost estimate), rendered as a shareable card in three themes and two sizes with optional PNG export.
 - **Fix mode** (`--fix`, `docs/scope.md` section 14): proposes safe, mechanical fixes with a diff preview, a backup before writing, and a confirmation requirement (`--yes`); `--dry-run` and `--allow-dirty` supported.
 - `--ci --fail-under` for CI score gates; `--theme`, `--min-severity`, `--out`, `--yes`, `--period`, `--tz`, `--anonymize`, `--no-cost`, `--show-projects`, `--no-color`.
 - Three bundled, subsetted, SIL-OFL-licensed fonts (Bricolage Grotesque, Figtree, JetBrains Mono), embedded as base64 in every themed output. No remote fonts.
 - CI matrix (macOS, Windows, Linux x Node 20, 22), a privacy guard that fails the build on any network-capable import, a version-sync check across `package.json`, `src/version.ts` and both plugin manifests, an em-dash guard, and a real publish smoke test (pack, install the tarball, run the installed bin).
+
+### Since v1 scope
+
+- **GitHub Copilot CLI**: full Doctor adapter (instructions, skills, MCP servers, settings/hooks) and Wrapped support, including dedup for files it shares directly with Claude Code (`.claude/skills`, `.claude/settings.json`, the portable `.mcp.json`).
+- **Cursor**: Wrapped support (reads `state.vscdb` via the built-in `node:sqlite` module, Node 22.5+ only), and Doctor project-scope skills auditing (`.cursor/skills/*/SKILL.md`, reusing the existing SKL-01 to SKL-05 rules).
+- **`.setupdoctorrc`**: `agent`/`scope`/`theme`/`minSeverity` now act as real CLI flag defaults, not just documentation.
+- **Score history and regression detection**: `--ci` appends to a local `.setupdoctor-history.jsonl`; `--compare` prints the delta since the last run, and with `--ci` also fails on any drop.
+- **SET-02 fix mode**: removes a hook pointing to a missing or non-executable script, via a real structural JSON edit (not line-based text surgery) with a round-trip formatting-fidelity safety gate.
+- **`wrapped --trend`**: compares the current `--period` against the immediately preceding period of the same length (sessions, active days, tokens, cost).
+- **`.pre-commit-hooks.yaml`**: a real manifest for the [pre-commit](https://pre-commit.com) framework, so any repo can use this one as a hook source.
+- **User guide** (`docs/guide/`): eight pages covering every command with real, captured output.
 
 ## Rule set
 
