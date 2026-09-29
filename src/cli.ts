@@ -9,6 +9,11 @@ import { renderHtmlReport } from './render/html.js';
 import { renderJsonReport } from './render/json.js';
 import { renderBadgeSvg, renderEndpointBadgeJson, renderMarkdownSnippet } from './render/badge.js';
 import { getTheme, isThemeName, THEME_NAMES, type ThemeName } from './render/themes/index.js';
+import { runWrapped } from './wrapped/run.js';
+import { renderWrappedTerminalReport } from './render/terminal-wrapped.js';
+import { renderLandscapeCardSvg, renderPortraitCardSvg, type CardInput } from './render/card.js';
+import { renderSvgToPng } from './render/png.js';
+import { PRICE_TABLE_AS_OF } from './wrapped/prices.js';
 import { RULES_VERSION, VERSION } from './version.js';
 
 export interface Io {
@@ -51,8 +56,13 @@ Options:
   --endpoint   Also write the shields.io endpoint JSON (badge)
   --ci         No prompts, stable output (doctor)
   --fail-under <n>   With --ci, exit 1 if the score is below n (doctor)
+  --period     7d | 30d | ytd | all | YYYY-MM-DD:YYYY-MM-DD (wrapped, default 30d)
+  --tz         IANA time zone (wrapped, default local)
+  --anonymize  Hide project names everywhere, including the local report (wrapped)
+  --no-cost    Remove cost figures (wrapped)
+  --show-projects  Show project names on the card, default hidden (wrapped)
 
-Status: doctor and badge are implemented. wrapped is still in progress.
+Status: doctor, badge and wrapped (Claude Code) are implemented.
 See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
@@ -302,6 +312,135 @@ async function runBadgeCommand(rest: string[], io: Io, homeDir?: string): Promis
   }
 }
 
+async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
+  const { flags } = parseArgsAfterCommand(rest);
+
+  const format = typeof flags.format === 'string' ? flags.format : 'terminal';
+  if (format !== 'terminal' && format !== 'json') {
+    io.err(`Unknown --format value: ${format}\nValid values: terminal, json`);
+    return 2;
+  }
+  const agentFlag = typeof flags.agent === 'string' ? flags.agent : 'claude';
+  if (!AGENT_VALUES.has(agentFlag)) {
+    io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
+    return 2;
+  }
+  if (agentFlag === 'codex' || agentFlag === 'cursor') {
+    io.out(`Wrapped is not supported for ${agentFlag} yet`);
+    return 0;
+  }
+  const themeRaw = typeof flags.theme === 'string' ? flags.theme : 'playful';
+  if (!isThemeName(themeRaw)) {
+    io.err(`Unknown --theme value: ${themeRaw}\nValid values: ${THEME_NAMES.join(', ')}`);
+    return 2;
+  }
+  const outDir = typeof flags.out === 'string' ? resolve(flags.out) : resolve('.');
+  const yes = flags.yes === true;
+  const anonymize = flags.anonymize === true;
+  const noCost = flags['no-cost'] === true;
+  const showProjects = flags['show-projects'] === true;
+  const periodFlag = typeof flags.period === 'string' ? flags.period : '30d';
+  const tz = typeof flags.tz === 'string' ? flags.tz : undefined;
+
+  try {
+    const result = await runWrapped({ homeDir, periodFlag, tz });
+    if (!result.ok) {
+      io.err(
+        `Invalid --period value: ${periodFlag}\nValid values: 7d, 30d, ytd, all, or YYYY-MM-DD:YYYY-MM-DD`,
+      );
+      return 2;
+    }
+    const { report } = result;
+    const showCost = !noCost;
+    const localProjects = anonymize ? [] : report.metrics.topProjects;
+
+    if (report.metrics.recordCount === 0) {
+      const message = `Setup Doctor Wrapped  ${report.periodLabel}\n\nNo sessions in this period. Try a wider --period, for example --period 30d or --period all.`;
+      io.out(message);
+      return 0;
+    }
+
+    if (format === 'json') {
+      io.out(
+        JSON.stringify(
+          {
+            schemaVersion: 1,
+            toolVersion: VERSION,
+            theme: themeRaw,
+            period: report.period,
+            periodLabel: report.periodLabel,
+            tz: report.tz,
+            metrics: { ...report.metrics, topProjects: localProjects, cost: showCost ? report.metrics.cost : undefined },
+            persona: report.persona,
+          },
+          null,
+          2,
+        ),
+      );
+    } else {
+      io.out(
+        renderWrappedTerminalReport({
+          periodLabel: report.periodLabel,
+          metrics: { ...report.metrics, topProjects: localProjects },
+          persona: report.persona,
+          showCost,
+          showProjects: true, // already filtered into localProjects above
+          priceTableAsOf: PRICE_TABLE_AS_OF,
+        }),
+      );
+    }
+
+    const cardShowProjects = showProjects && !anonymize;
+    const cardInput: Omit<CardInput, 'theme'> = {
+      periodLabel: report.periodLabel,
+      sessions: report.metrics.sessions,
+      activeDays: report.metrics.activeDays,
+      totalTokens: report.metrics.tokens.input + report.metrics.tokens.output + report.metrics.tokens.cacheRead + report.metrics.tokens.cacheWrite,
+      costUsd: showCost ? report.metrics.cost.totalUsd : null,
+      busiestHour: report.metrics.busiestHour,
+      busiestWeekday: report.metrics.busiestWeekday,
+      longestStreakDays: report.metrics.longestStreakDays,
+      persona: report.persona,
+      activity: report.activity,
+      showProjects: cardShowProjects,
+      topProjects: cardShowProjects ? report.metrics.topProjects : [],
+    };
+    const theme = getTheme(themeRaw);
+
+    const landscapeSvg = renderLandscapeCardSvg({ ...cardInput, theme });
+    const portraitSvg = renderPortraitCardSvg({ ...cardInput, theme });
+
+    const landscapeResult = await writeOutputFile(outDir, 'setup-doctor-wrapped-1200x630.svg', landscapeSvg, yes);
+    if (!landscapeResult.ok) {
+      io.err(`setup-doctor wrapped: ${landscapeResult.path} ${landscapeResult.reason}`);
+      return 2;
+    }
+    const portraitResult = await writeOutputFile(outDir, 'setup-doctor-wrapped-1080x1350.svg', portraitSvg, yes);
+    if (!portraitResult.ok) {
+      io.err(`setup-doctor wrapped: ${portraitResult.path} ${portraitResult.reason}`);
+      return 2;
+    }
+    io.out(`Wrote ${landscapeResult.path}, ${portraitResult.path}`);
+
+    const landscapePng = await renderSvgToPng(landscapeSvg, 1200);
+    if (landscapePng) {
+      const portraitPng = await renderSvgToPng(portraitSvg, 1080);
+      const { writeFile } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      await writeFile(join(outDir, 'setup-doctor-wrapped-1200x630.png'), landscapePng);
+      if (portraitPng) await writeFile(join(outDir, 'setup-doctor-wrapped-1080x1350.png'), portraitPng);
+      io.out('Wrote PNG versions (optional @resvg/resvg-js dependency found).');
+    } else {
+      io.out('PNG needs the optional @resvg/resvg-js package (npm install @resvg/resvg-js). SVG was written.');
+    }
+
+    return 0;
+  } catch (err) {
+    io.err(`setup-doctor wrapped: internal error: ${(err as Error).message}\nPlease file an issue.`);
+    return 4;
+  }
+}
+
 async function runRulesCommand(io: Io): Promise<number> {
   let config;
   try {
@@ -388,6 +527,9 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
   }
   if (command === 'badge') {
     return runBadgeCommand(rest, io, homeDirOverride);
+  }
+  if (command === 'wrapped') {
+    return runWrappedCommand(rest, io, homeDirOverride);
   }
   if (command === 'rules') {
     return runRulesCommand(io);

@@ -11,7 +11,7 @@ import { mergeConfig } from './config.js';
 import { computeOverheadTokens, scoreFindings, type ScoreResult } from './scoring.js';
 import type { SetupDoctorConfig } from './types.js';
 import { RULES_VERSION, VERSION } from '../version.js';
-import type { Agent, Category, DiscoveryContext, Finding, NormalizedModel, Scope, Severity } from './types.js';
+import type { Agent, Category, DiscoveryContext, Finding, NormalizedModel, Scope, SessionRecord, Severity } from './types.js';
 
 export interface RunOptions {
   path?: string;
@@ -140,17 +140,45 @@ function buildInlineSuppressionMap(model: NormalizedModel): Map<string, Set<stri
   return map;
 }
 
-export function runRules(model: NormalizedModel, config: SetupDoctorConfig): { kept: Finding[]; suppressed: Finding[] } {
+export function runRules(
+  model: NormalizedModel,
+  config: SetupDoctorConfig,
+  sessions: SessionRecord[] = [],
+): { kept: Finding[]; suppressed: Finding[] } {
   const findings: Finding[] = [];
+  const now = new Date().toISOString();
   for (const rule of ALL_RULES) {
     if (!rule.agents.some((a) => model.agents.includes(a))) continue;
-    findings.push(...rule.run({ model, config }));
+    findings.push(...rule.run({ model, config, sessions, now }));
   }
   findings.sort(compareFindings);
   const inlineByFile = buildInlineSuppressionMap(model);
   const result = applySuppressions(findings, config, inlineByFile);
   result.suppressed.sort(compareFindings);
   return result;
+}
+
+/**
+ * Session logs for SKL-06 and MCP-05 (docs/scope.md Phase 3 note: they stay
+ * inactive until session data is available). A 30-day window is enough for
+ * their "used in the last 30 days" check while keeping `doctor` fast; never
+ * throws, since session logs are optional and doctor must not fail because
+ * of them (hard rule 7).
+ */
+async function collectSessionsForRules(ctx: DiscoveryContext, agents: Agent[]): Promise<SessionRecord[]> {
+  const sessions: SessionRecord[] = [];
+  for (const agent of agents) {
+    const adapter = getAdapter(agent);
+    if (!adapter) continue;
+    try {
+      for await (const record of adapter.readSessions(ctx, { kind: '30d' })) {
+        sessions.push(record);
+      }
+    } catch {
+      // Session logs are best-effort for doctor; ignore failures here.
+    }
+  }
+  return sessions;
 }
 
 export interface DoctorReport {
@@ -178,7 +206,8 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
   const agents = await detectAgents(ctx, options.agent ?? 'auto');
   const model = await buildModel(ctx, agents);
   const config = mergeConfig(null, options.config ?? {});
-  const { kept, suppressed } = runRules(model, config);
+  const sessions = await collectSessionsForRules(ctx, agents);
+  const { kept, suppressed } = runRules(model, config, sessions);
   const { score, band, capped, categories } = scoreFindings(kept, model);
   return {
     toolVersion: VERSION,

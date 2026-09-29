@@ -26,6 +26,8 @@ import type {
 import { parseFrontmatter } from './frontmatter.js';
 import { findNestedFiles, isDirectory, isExecutable, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
 import { isCommandOnPath } from './path-check.js';
+import { readAllSessions } from '../wrapped/parse-claude.js';
+import { resolvePeriodBounds } from '../wrapped/period.js';
 
 function includesScope(ctx: DiscoveryContext, wanted: Scope): boolean {
   return ctx.scope === 'all' || ctx.scope === wanted;
@@ -636,8 +638,9 @@ async function detect(ctx: DiscoveryContext): Promise<boolean> {
   return false;
 }
 
-async function* readSessions(_ctx: DiscoveryContext, _period: Period): AsyncGenerator<SessionRecord> {
-  // Implemented in Phase 5 (docs/scope.md section 11).
+async function* readSessions(ctx: DiscoveryContext, period: Period): AsyncGenerator<SessionRecord> {
+  const bounds = resolvePeriodBounds(period, new Date());
+  yield* readAllSessions(ctx.homeDir, bounds);
 }
 
 export const claudeCodeAdapter: Adapter = {

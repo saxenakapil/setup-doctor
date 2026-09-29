@@ -29,12 +29,6 @@ describe('cli basics', () => {
     expect(await main(['--nope'], c.io)).toBe(2);
   });
 
-  it('exits 4 for commands not implemented yet', async () => {
-    const c = capture();
-    expect(await main(['wrapped'], c.io)).toBe(4);
-    expect(c.err.join('\n')).toContain('not implemented yet');
-  });
-
   it('exits 2 on an unknown --format value', async () => {
     const c = capture();
     expect(await main(['doctor', '--format', 'yaml'], c.io)).toBe(2);
@@ -213,5 +207,112 @@ describe('cli badge (deterministic fixture home and project)', () => {
     expect(existsSync(jsonPath)).toBe(true);
     const endpoint = JSON.parse(readFileSync(jsonPath, 'utf8'));
     expect(endpoint).toEqual({ schemaVersion: 1, label: 'setup doctor', message: '100 Excellent', color: 'brightgreen' });
+  });
+});
+
+describe('cli wrapped (deterministic fixture home)', () => {
+  const WRAPPED_HOME = join(__dirname, 'fixtures', 'wrapped', 'home');
+  let outDir: string;
+
+  beforeEach(() => {
+    outDir = mkdtempSync(join(tmpdir(), 'setup-doctor-out-'));
+  });
+
+  afterEach(() => {
+    rmSync(outDir, { recursive: true, force: true });
+  });
+
+  it('exits 2 on an invalid --period value', async () => {
+    const c = capture();
+    const code = await main(['wrapped', '--period', 'last-tuesday', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(2);
+  });
+
+  it('prints "not supported" for codex/cursor and exits 0', async () => {
+    const c = capture();
+    const code = await main(['wrapped', '--agent', 'codex', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('not supported for codex yet');
+  });
+
+  it('reports "no sessions in this period" for a narrow window and writes no card files', async () => {
+    const c = capture();
+    const code = await main(['wrapped', '--period', '7d', '--tz', 'UTC', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('No sessions in this period');
+    expect(existsSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'))).toBe(false);
+  });
+
+  it('renders the terminal report and writes both card SVGs for the fixture sessions', async () => {
+    const c = capture();
+    const code = await main(['wrapped', '--period', 'all', '--tz', 'UTC', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(0);
+    const text = c.out.join('\n');
+    expect(text).toContain('Sessions 2');
+    expect(text).toContain('Active days 2');
+    expect(text).toContain('Persona: Marathoner');
+
+    const landscape = join(outDir, 'setup-doctor-wrapped-1200x630.svg');
+    const portrait = join(outDir, 'setup-doctor-wrapped-1080x1350.svg');
+    expect(existsSync(landscape)).toBe(true);
+    expect(existsSync(portrait)).toBe(true);
+    expect(readFileSync(landscape, 'utf8')).toContain('<svg');
+    // Default (no --show-projects): the card never names a project.
+    expect(readFileSync(landscape, 'utf8')).not.toContain('sample-project');
+  });
+
+  it('--format json omits cost with --no-cost', async () => {
+    const c = capture();
+    const code = await main(
+      ['wrapped', '--period', 'all', '--tz', 'UTC', '--format', 'json', '--no-cost', '--out', outDir],
+      c.io,
+      WRAPPED_HOME,
+    );
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out[0] as string);
+    expect(report.metrics.cost).toBeUndefined();
+  });
+
+  it('--format json includes top projects by default (local report, not the card) but --anonymize hides them', async () => {
+    const withProjects = capture();
+    await main(['wrapped', '--period', 'all', '--tz', 'UTC', '--format', 'json', '--out', outDir], withProjects.io, WRAPPED_HOME);
+    const reportWithProjects = JSON.parse(withProjects.out[0] as string);
+    expect(reportWithProjects.metrics.topProjects).toEqual([{ project: 'sample-project', tokens: 2020 }]);
+
+    const anonymized = capture();
+    await main(
+      ['wrapped', '--period', 'all', '--tz', 'UTC', '--format', 'json', '--anonymize', '--out', outDir, '--yes'],
+      anonymized.io,
+      WRAPPED_HOME,
+    );
+    const reportAnonymized = JSON.parse(anonymized.out[0] as string);
+    expect(reportAnonymized.metrics.topProjects).toEqual([]);
+  });
+
+  it('--anonymize hides project names from the local terminal report too', async () => {
+    const c = capture();
+    const code = await main(['wrapped', '--period', 'all', '--tz', 'UTC', '--anonymize', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).not.toContain('sample-project');
+  });
+
+  it('--show-projects puts the project name on the card', async () => {
+    const c = capture();
+    const code = await main(
+      ['wrapped', '--period', 'all', '--tz', 'UTC', '--show-projects', '--out', outDir],
+      c.io,
+      WRAPPED_HOME,
+    );
+    expect(code).toBe(0);
+    const landscape = readFileSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'), 'utf8');
+    expect(landscape).toContain('sample-project');
+  });
+
+  it('never leaks message text into the terminal or JSON output', async () => {
+    const c = capture();
+    await main(['wrapped', '--period', 'all', '--tz', 'UTC', '--format', 'json', '--out', outDir], c.io, WRAPPED_HOME);
+    const text = c.out.join('\n');
+    expect(text).not.toContain('Hello, please fix the bug');
+    expect(text).not.toContain('file contents');
   });
 });

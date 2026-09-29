@@ -1,0 +1,8 @@
+{"type":"queue-operation","sessionId":"sess-a","timestamp":"2026-01-01T09:59:00.000Z"}
+this is not valid json at all
+{"type":"user","sessionId":"sess-a","timestamp":"2026-01-01T10:00:00.000Z","message":{"content":[{"type":"text","text":"Hello, please fix the bug."}]}}
+{"type":"assistant","sessionId":"sess-a","timestamp":"2026-01-01T10:00:05.000Z","requestId":"req_1","message":{"id":"msg_1","model":"claude-sonnet-5","usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"content":[{"type":"thinking"}]}}
+{"type":"assistant","sessionId":"sess-a","timestamp":"2026-01-01T10:00:05.500Z","requestId":"req_1","message":{"id":"msg_1","model":"claude-sonnet-5","usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"content":[{"type":"tool_use","name":"Read"}]}}
+{"type":"user","sessionId":"sess-a","timestamp":"2026-01-01T10:00:06.000Z","message":{"content":[{"type":"tool_result","content":"file contents..."}]}}
+{"type":"user","sessionId":"sess-a","timestamp":"2026-01-01T10:00:10.000Z","message":{"content":[{"type":"text","text":"/setup-doctor:doctor run it"}]}}
+{"type":"assistant","sessionId":"sess-a","timestamp":"2026-01-01T14:30:00.000Z","requestId":"req_2","message":{"id":"msg_2","model":"claude-haiku-4-5","usage":{"input_tokens":200,"output_tokens":100,"cache_creation_input_tokens":0,"cache_read_input_tokens":500},"content":[{"type":"tool_use","name":"Bash"}]}}

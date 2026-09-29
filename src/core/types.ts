@@ -168,8 +168,12 @@ export type PeriodKind = '7d' | '30d' | 'ytd' | 'all' | 'range';
 
 export interface Period {
   kind: PeriodKind;
-  start?: string;
-  end?: string;
+  start?: string; // 'range' kind only: YYYY-MM-DD, inclusive
+  end?: string; // 'range' kind only: YYYY-MM-DD, inclusive
+  // IANA zone for boundary math (ytd, range, active-day bucketing). Not part
+  // of docs/scope.md's Period sketch; added because the Adapter.readSessions
+  // signature takes only (ctx, period) and tz-aware filtering needs it.
+  tz?: string;
 }
 
 export interface DiscoveryContext {
