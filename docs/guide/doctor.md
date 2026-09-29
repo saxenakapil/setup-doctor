@@ -78,7 +78,8 @@ npx setup-doctor --format html --out ./report --theme technical
   "findings": [ /* one object per finding, same fields you see in the terminal, plus ruleId, category, severity */ ],
   "suppressed": [ /* findings a rule disabled in .setupdoctorrc or an inline comment kept out of the score */ ],
   "skipped": [ /* files that existed but could not be read, and why */ ],
-  "warnings": []
+  "warnings": [],
+  "compare": null /* only present with --compare; null with no prior history, otherwise { previous, currentScore, delta, regressed, rulesVersionChanged } */
 }
 ```
 
@@ -100,6 +101,20 @@ exit: 1
 
 See [`ci-integration.md`](ci-integration.md) for a full GitHub Actions example.
 
+## `--compare`: fail on any regression, not just a fixed threshold
+
+`--ci` alone appends one line (timestamp, score, band, agents detected, rules version) to a local `.setupdoctor-history.jsonl` on every run. `--compare` reads it back and prints the change since the last recorded run; combined with `--ci`, it also exits `1` on any drop, even one `--fail-under`'s fixed number wouldn't have caught:
+
+```bash
+$ npx setup-doctor doctor --ci --compare; echo "exit: $?"
+Setup Doctor  score 74/100  (Needs work) (capped: a critical finding limits the score to 74)   rules v1.0.0
+...
+Score history: 100 -> 74 (-26) since 2026-09-29T12:41:06.783Z
+exit: 1
+```
+
+`--compare` alone (no `--ci`) just prints the delta and never affects the exit code or appends a new entry, useful for checking locally how your score has moved since the last CI run without writing anything. With no prior history yet, it prints `Score history: no previous run recorded yet.` and exits `0`. `--format json` gets the same information as a `compare` field (`null` with no prior history) instead of the printed line. See [`ci-integration.md`](ci-integration.md) for why this needs a persisted cache in most CI setups (runners are ephemeral by default) and a real worked example.
+
 ## `--out` and `--yes`
 
 `--out <dir>` is required for `--format html` (and optional for `--format json`, which otherwise prints to stdout). `setup-doctor` refuses to overwrite an existing output file unless you pass `--yes`:
@@ -115,8 +130,8 @@ Wrote ./report/setup-doctor-report.html
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Success (including "nothing to check" and, without `--ci --fail-under`, any score) |
-| 1 | Score below `--fail-under` with `--ci` |
+| 0 | Success (including "nothing to check" and, without `--ci --fail-under`/`--ci --compare`, any score) |
+| 1 | Score below `--fail-under` with `--ci`, or a real regression with `--ci --compare` |
 | 2 | Usage error: unknown flag, bad `.setupdoctorrc` |
 | 3 | Data unreadable and nothing usable was parsed |
 | 4 | Internal error (please file an issue) |

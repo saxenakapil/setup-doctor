@@ -4,6 +4,7 @@ coverage
 *.tgz
 .DS_Store
 .setupdoctor-backup
+.setupdoctor-history.jsonl
 setup-doctor-report.html
 setup-doctor-badge.json
 setup-doctor-badge.svg

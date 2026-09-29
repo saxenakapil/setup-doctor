@@ -27,6 +27,36 @@ jobs:
 
 If you use a [`.setupdoctorrc`](config.md) to disable a rule or tune a threshold, no extra CI configuration is needed: the CLI reads it from the project root the same way it does locally, since it is running the exact same command.
 
+## Track score history and gate on regressions
+
+`--ci` alone appends one line to a local `.setupdoctor-history.jsonl` every run (never on a plain local `doctor` run, only under `--ci`); `--compare` reads it back and reports the delta since the last recorded run, and combined with `--ci` also fails the job on any drop, even one `--fail-under`'s fixed threshold wouldn't catch:
+
+```bash
+$ npx setup-doctor doctor --ci --compare
+Setup Doctor  score 82/100  (Good)   rules v1.0.0
+...
+Score history: 88 -> 82 (-6) since 2026-09-20T14:03:11.000Z
+$ echo $?
+1
+```
+
+CI runners are ephemeral by default: without persisting `.setupdoctor-history.jsonl` between runs, `--compare` would only ever see "no previous run recorded" and never actually catch anything. Cache it with [`actions/cache`](https://github.com/actions/cache), keyed so a cache miss never blocks the job:
+
+```yaml
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache@v4
+        with:
+          path: .setupdoctor-history.jsonl
+          key: setup-doctor-history-${{ github.repository }}
+          restore-keys: setup-doctor-history-
+      - run: npx setup-doctor@latest doctor --ci --compare
+```
+
+`.setupdoctor-history.jsonl` is in this project's own `.gitignore` and should be in yours too: it is local run history, not something to commit, and `actions/cache` (or your own CI's persistent cache/volume) is what carries it between runs instead.
+
 ## Publish a live badge from your own CI
 
 Copy [`docs/examples/badge-workflow.yml`](../examples/badge-workflow.yml) to `.github/workflows/setup-doctor-badge.yml`:

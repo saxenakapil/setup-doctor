@@ -24,7 +24,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 | Agent | Doctor | Wrapped |
 | --- | --- | --- |
 | [Claude Code](https://claude.com/claude-code) | Full (all 26 rules) | Supported |
-| [Codex](https://developers.openai.com/codex) | Instructions + MCP rules | Supported (verified against a real Codex CLI install; see [`docs/notes.md`](docs/notes.md)) |
+| [Codex](https://developers.openai.com/codex) | Instructions + MCP rules | Supported |
 | [GitHub Copilot CLI](https://docs.github.com/en/copilot) | Instructions, skills, MCP and settings/hooks rules | Not supported yet (Copilot's session log is a documented JSONL format, same shape of source Codex's turned out to be, but was not verified against a real local install; see [`docs/notes.md`](docs/notes.md)) |
 | [Cursor](https://cursor.com) | Instructions + MCP rules | Supported on Node 22.5+ (reads Cursor's local `state.vscdb` via the built-in `node:sqlite` module; verified against a real Cursor install, see [`docs/notes.md`](docs/notes.md)) |
 
@@ -56,6 +56,7 @@ Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/
 | `--theme playful\|technical\|mix` | doctor --format html, badge, wrapped | Visual theme (default `playful`) |
 | `--min-severity low\|medium\|high\|critical` | doctor | Hide findings below this level (score is unaffected) |
 | `--ci --fail-under <n>` | doctor | Exit 1 if the score is below `n`, for CI gates |
+| `--ci --compare` | doctor | Appends the score to a local `.setupdoctor-history.jsonl` and exits 1 if it dropped since the last `--ci` run; `--compare` alone (no `--ci`) just prints the delta |
 | `--period 7d\|30d\|ytd\|all\|YYYY-MM-DD:YYYY-MM-DD` | wrapped | Time window (default `30d`) |
 | `--anonymize` / `--show-projects` | wrapped | Hide project names everywhere / show them on the card (default hidden) |
 | `--no-cost` | wrapped | Remove cost figures |

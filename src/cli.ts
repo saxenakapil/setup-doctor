@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { ConfigParseError, loadConfigFile, mergeConfig } from './core/config.js';
+import { appendHistoryEntry, compareToLast, formatComparisonLine, readHistory, type ScoreComparison } from './core/history.js';
 import { makeDiscoveryContext, runDoctor } from './core/runner.js';
 import { writeOutputFile } from './core/output.js';
 import { applyFixes, backupFiles, planFixes } from './core/fix.js';
@@ -67,6 +68,7 @@ Options:
   --no-color   Disable ANSI color (also off for --ci, NO_COLOR, or a non-TTY output)
   --ci         No prompts, stable output (doctor)
   --fail-under <n>   With --ci, exit 1 if the score is below n (doctor)
+  --compare    Print the score change since the last --ci run; with --ci, also exit 1 on a drop (doctor)
   --period     7d | 30d | ytd | all | YYYY-MM-DD:YYYY-MM-DD (wrapped, default 30d)
   --tz         IANA time zone (wrapped, default local)
   --anonymize  Hide project names everywhere, including the local report (wrapped)
@@ -305,6 +307,19 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
     const displayedFindings = filterByMinSeverity(report.findings, minSeverity);
     const highAndCriticalCount = report.findings.filter((f) => f.severity === 'high' || f.severity === 'critical').length;
 
+    // Score history (docs/notes.md backlog: "Score history and regression
+    // detection"). A history entry is appended only under --ci, so a plain
+    // local `doctor` run never writes this file as a surprise side effect;
+    // --compare reads and reports the delta independently of --ci, and only
+    // affects the exit code when combined with --ci (see the check below).
+    const compareFlag = flags.compare === true;
+    const historyRoot = resolve(positionals[0] ?? '.');
+    let comparison: ScoreComparison | null = null;
+    if (compareFlag && report.score !== null) {
+      const history = await readHistory(historyRoot);
+      comparison = compareToLast(history, report.score, report.rulesVersion);
+    }
+
     if (format === 'json') {
       const jsonReport = renderJsonReport({
         toolVersion: report.toolVersion,
@@ -320,6 +335,7 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
         suppressed: report.suppressed,
         skipped: report.skipped,
         warnings: report.warnings,
+        ...(compareFlag ? { compare: comparison } : {}),
       });
       const text = JSON.stringify(jsonReport, null, 2);
       if (flags.out !== undefined) {
@@ -347,6 +363,9 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
           useColor: computeUseColor(flags, ci),
         }),
       );
+      if (compareFlag) {
+        io.out(comparison ? formatComparisonLine(comparison) : 'Score history: no previous run recorded yet.');
+      }
     } else {
       const html = renderHtmlReport({
         toolVersion: report.toolVersion,
@@ -370,8 +389,19 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
       io.out(`Wrote ${result.path}`);
     }
 
-    if (ci && failUnder !== undefined && report.score !== null && report.score < failUnder) {
-      return 1;
+    if (ci && report.score !== null && report.band !== null) {
+      await appendHistoryEntry(historyRoot, {
+        ts: new Date().toISOString(),
+        score: report.score,
+        band: report.band,
+        agentsDetected: report.agentsDetected,
+        rulesVersion: report.rulesVersion,
+      });
+    }
+
+    if (ci) {
+      if (failUnder !== undefined && report.score !== null && report.score < failUnder) return 1;
+      if (compareFlag && comparison?.regressed) return 1;
     }
     return 0;
   } catch (err) {

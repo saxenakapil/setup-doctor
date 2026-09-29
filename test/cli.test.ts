@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { main } from '../src/cli.js';
+import { HISTORY_FILE_NAME } from '../src/core/history.js';
 import { VERSION } from '../src/version.js';
 import { loadSqlite } from '../src/wrapped/sqlite-loader.js';
 
@@ -339,6 +340,88 @@ describe('cli doctor: .setupdoctorrc (regression: was loaded and validated only 
     const report = JSON.parse(c.out.join('\n'));
     expect(report.theme).toBe('playful');
     expect(report.warnings.some((w: string) => w.includes('Invalid value') && w.includes('theme'))).toBe(true);
+  });
+});
+
+describe('cli doctor: score history and --compare (Phase 12)', () => {
+  let homeDir: string;
+  let project: string;
+
+  beforeEach(() => {
+    homeDir = mkdtempSync(join(tmpdir(), 'setup-doctor-home-'));
+    project = mkdtempSync(join(tmpdir(), 'setup-doctor-project-'));
+    writeFileSync(join(project, 'CLAUDE.md'), 'Run npm test before committing.\n'); // scores 100, no findings
+  });
+
+  afterEach(() => {
+    rmSync(homeDir, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('a plain local doctor run never writes the history file', async () => {
+    const c = capture();
+    await main([project, '--agent', 'claude', '--scope', 'project'], c.io, homeDir);
+    expect(existsSync(join(project, HISTORY_FILE_NAME))).toBe(false);
+  });
+
+  it('--ci appends one history entry per run, without --compare', async () => {
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--ci'], c.io, homeDir);
+    expect(code).toBe(0);
+    const lines = readFileSync(join(project, HISTORY_FILE_NAME), 'utf8').trim().split('\n');
+    expect(lines).toHaveLength(1);
+    const entry = JSON.parse(lines[0] as string);
+    expect(entry).toMatchObject({ score: 100, band: 'Excellent', agentsDetected: ['claude'] });
+  });
+
+  it('--compare with no prior history says so, both in terminal and JSON output', async () => {
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--compare'], c.io, homeDir);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('Score history: no previous run recorded yet.');
+
+    const cJson = capture();
+    await main([project, '--agent', 'claude', '--scope', 'project', '--compare', '--format', 'json'], cJson.io, homeDir);
+    const report = JSON.parse(cJson.out.join('\n'));
+    expect(report.compare).toBeNull();
+  });
+
+  it('--compare reports a real delta against the last --ci-recorded run, without needing --ci itself', async () => {
+    // Simulate an earlier, worse CI run.
+    writeFileSync(join(project, 'CLAUDE.md'), 'API_KEY=aZ9kQ2mP7xR4vL1wT6bN3jH8\n');
+    const first = capture();
+    await main([project, '--agent', 'claude', '--scope', 'project', '--ci'], first.io, homeDir);
+
+    // Now the project is fixed and scores 100; --compare alone (no --ci) should see the improvement.
+    writeFileSync(join(project, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--compare'], c.io, homeDir);
+    expect(code).toBe(0);
+    const text = c.out.join('\n');
+    expect(text).toMatch(/Score history: \d+ -> 100 \(\+\d+\) since/);
+    // --compare alone must not itself append a second entry.
+    expect(readFileSync(join(project, HISTORY_FILE_NAME), 'utf8').trim().split('\n')).toHaveLength(1);
+  });
+
+  it('--ci --compare exits 1 on a real regression, even without --fail-under', async () => {
+    const first = capture();
+    await main([project, '--agent', 'claude', '--scope', 'project', '--ci'], first.io, homeDir);
+
+    writeFileSync(join(project, 'CLAUDE.md'), 'API_KEY=aZ9kQ2mP7xR4vL1wT6bN3jH8\n');
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--ci', '--compare'], c.io, homeDir);
+    expect(code).toBe(1);
+    expect(c.out.join('\n')).toMatch(/Score history: 100 -> \d+ \(-\d+\) since/);
+  });
+
+  it('--compare without --ci never affects the exit code, even on a regression', async () => {
+    const first = capture();
+    await main([project, '--agent', 'claude', '--scope', 'project', '--ci'], first.io, homeDir);
+
+    writeFileSync(join(project, 'CLAUDE.md'), 'API_KEY=aZ9kQ2mP7xR4vL1wT6bN3jH8\n');
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--compare'], c.io, homeDir);
+    expect(code).toBe(0);
   });
 });
 
