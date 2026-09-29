@@ -47,6 +47,11 @@ export interface WrappedMetrics {
   nightOwlUserRecordFraction: number;
 }
 
+/** Sum of all four token categories. The one total every render surface (terminal, card, trend) shows as a single headline number. */
+export function totalTokens(m: Pick<WrappedMetrics, 'tokens'>): number {
+  return m.tokens.input + m.tokens.output + m.tokens.cacheRead + m.tokens.cacheWrite;
+}
+
 export interface ActivityCell {
   date: string;
   level: 0 | 1 | 2 | 3 | 4;

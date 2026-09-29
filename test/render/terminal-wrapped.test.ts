@@ -107,4 +107,110 @@ describe('renderWrappedTerminalReport', () => {
     expect(text).toContain('n/a');
     expect(text.toLowerCase()).toContain('not in the price table');
   });
+
+  describe('--trend', () => {
+    function trendComparison(overrides: Partial<{ sessions: number; activeDays: number; tokens: number; costUsd: number | null }> = {}) {
+      return {
+        previousPeriodLabel: 'previous 7 days',
+        previous: baseMetrics({ sessions: 3, activeDays: 2, tokens: { input: 500, output: 200, cacheRead: 0, cacheWrite: 0 } }),
+        deltas: { sessions: 2, activeDays: 2, tokens: 1000, costUsd: 0.5, ...overrides },
+      };
+    }
+
+    it('omits the trend line entirely when trend is undefined (flag not passed)', () => {
+      const text = renderWrappedTerminalReport({
+        periodLabel: '7 days',
+        metrics: baseMetrics(),
+        persona: PERSONA,
+        showCost: true,
+        showProjects: true,
+        priceTableAsOf: '2026-09-29',
+      });
+      expect(text).not.toContain('Trend');
+    });
+
+    it('explains why trend is unavailable when trend is null (period "all")', () => {
+      const text = renderWrappedTerminalReport({
+        periodLabel: 'all time',
+        metrics: baseMetrics(),
+        persona: PERSONA,
+        showCost: true,
+        showProjects: true,
+        priceTableAsOf: '2026-09-29',
+        trend: null,
+      });
+      expect(text).toContain('Trend: not available for --period all');
+    });
+
+    it('renders positive deltas with a + sign and the previous-period label', () => {
+      const text = renderWrappedTerminalReport({
+        periodLabel: '7 days',
+        metrics: baseMetrics(),
+        persona: PERSONA,
+        showCost: true,
+        showProjects: true,
+        priceTableAsOf: '2026-09-29',
+        trend: trendComparison(),
+      });
+      expect(text).toContain('Trend vs previous 7 days:');
+      expect(text).toContain('Sessions (+2)');
+      expect(text).toContain('Tokens (+1,000)');
+      expect(text).toContain('Est. cost* (+$0.50)');
+    });
+
+    it('renders negative deltas with a - sign, not a double negative or a missing sign', () => {
+      const text = renderWrappedTerminalReport({
+        periodLabel: '7 days',
+        metrics: baseMetrics(),
+        persona: PERSONA,
+        showCost: true,
+        showProjects: true,
+        priceTableAsOf: '2026-09-29',
+        trend: trendComparison({ sessions: -3, tokens: -500, costUsd: -0.25 }),
+      });
+      expect(text).toContain('Sessions (-3)');
+      expect(text).toContain('Tokens (-500)');
+      expect(text).toContain('Est. cost* (-$0.25)');
+    });
+
+    it('renders "(no change)" for a zero delta rather than "(+0)"', () => {
+      const text = renderWrappedTerminalReport({
+        periodLabel: '7 days',
+        metrics: baseMetrics(),
+        persona: PERSONA,
+        showCost: true,
+        showProjects: true,
+        priceTableAsOf: '2026-09-29',
+        trend: trendComparison({ activeDays: 0 }),
+      });
+      expect(text).toContain('Active days (no change)');
+    });
+
+    it('omits the cost delta when it is null (an unknown model on either side), without breaking the rest of the line', () => {
+      const text = renderWrappedTerminalReport({
+        periodLabel: '7 days',
+        metrics: baseMetrics(),
+        persona: PERSONA,
+        showCost: true,
+        showProjects: true,
+        priceTableAsOf: '2026-09-29',
+        trend: trendComparison({ costUsd: null }),
+      });
+      expect(text).toContain('Trend vs previous 7 days:');
+      expect(text.split('\n').find((l) => l.startsWith('Trend'))).not.toContain('Est. cost*');
+    });
+
+    it('omits the cost delta when --no-cost is in effect (showCost: false), even if it is non-null', () => {
+      const text = renderWrappedTerminalReport({
+        periodLabel: '7 days',
+        metrics: baseMetrics(),
+        persona: PERSONA,
+        showCost: false,
+        showProjects: true,
+        priceTableAsOf: '2026-09-29',
+        trend: trendComparison(),
+      });
+      expect(text.split('\n').find((l) => l.startsWith('Trend'))).not.toContain('Est. cost*');
+    });
+  });
 });

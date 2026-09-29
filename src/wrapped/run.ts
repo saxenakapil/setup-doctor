@@ -5,16 +5,32 @@
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { getAdapter } from '../adapters/index.js';
-import { computeMetrics, buildActivityStrip, type ActivityCell, type WrappedMetrics } from './metrics.js';
+import { computeMetrics, buildActivityStrip, totalTokens, type ActivityCell, type WrappedMetrics } from './metrics.js';
 import { classifyPersona, type Persona } from './persona.js';
-import { parsePeriodFlag, resolvePeriodBounds, resolveTz } from './period.js';
-import type { Agent, Period } from '../core/types.js';
+import { localDateKey, parsePeriodFlag, resolvePeriodBounds, resolveTz, type PeriodBounds } from './period.js';
+import type { Agent, Period, SessionRecord } from '../core/types.js';
 
 export interface WrappedRunOptions {
   agent: Agent;
   homeDir?: string;
   periodFlag: string;
   tz?: string;
+  trend?: boolean;
+}
+
+export interface TrendDeltas {
+  sessions: number;
+  activeDays: number;
+  tokens: number;
+  // null when either side's cost is unknown (an unrecognized model), same
+  // "do not guess" contract estimateCost already follows.
+  costUsd: number | null;
+}
+
+export interface TrendComparison {
+  previousPeriodLabel: string;
+  previous: WrappedMetrics;
+  deltas: TrendDeltas;
 }
 
 export interface WrappedReport {
@@ -24,6 +40,10 @@ export interface WrappedReport {
   metrics: WrappedMetrics;
   persona: Persona;
   activity: ActivityCell[];
+  // Present only when `trend: true` was requested. Null when there is no
+  // well-defined "previous period" (period 'all', which already covers
+  // every record on disk).
+  trend?: TrendComparison | null;
 }
 
 export function periodLabel(period: Period): string {
@@ -43,6 +63,18 @@ export function periodLabel(period: Period): string {
 
 export type WrappedRunResult = { ok: true; report: WrappedReport } | { ok: false; reason: 'invalid-period' };
 
+/** "Previous period of the same length": the bounds immediately preceding `bounds`, spanning the same duration. Null when `bounds` is unbounded (period 'all' has no meaningful predecessor). */
+function previousPeriodBounds(bounds: PeriodBounds): PeriodBounds | null {
+  if (!Number.isFinite(bounds.startMs) || !Number.isFinite(bounds.endMs)) return null;
+  const lengthMs = bounds.endMs - bounds.startMs + 1;
+  return { startMs: bounds.startMs - lengthMs, endMs: bounds.startMs - 1 };
+}
+
+function inRange(ts: string, bounds: PeriodBounds): boolean {
+  const ms = Date.parse(ts);
+  return !Number.isNaN(ms) && ms >= bounds.startMs && ms <= bounds.endMs;
+}
+
 export async function runWrapped(options: WrappedRunOptions): Promise<WrappedRunResult> {
   const period = parsePeriodFlag(options.periodFlag, options.tz);
   if (!period) return { ok: false, reason: 'invalid-period' };
@@ -54,16 +86,55 @@ export async function runWrapped(options: WrappedRunOptions): Promise<WrappedRun
   const tz = resolveTz(options.tz);
   const homeDir = options.homeDir ?? homedir();
   const adapter = getAdapter(options.agent);
+  const prevBounds = options.trend ? previousPeriodBounds(bounds) : null;
 
-  const records = [];
+  // Without --trend, fetch only the requested period, same as before this
+  // feature existed. With it, fetch the current period plus the preceding
+  // one of the same length in a single pass (one adapter read instead of
+  // two), using a widened day-aligned range: `Period`'s 'range' kind only
+  // takes whole local days, so the fetch window is padded a day on each
+  // side, and the exact millisecond bounds computed above are what
+  // actually classify each record afterward, not the fetch window itself.
+  const fetchPeriod: Period = prevBounds
+    ? {
+        kind: 'range',
+        start: localDateKey(new Date(prevBounds.startMs - 24 * 60 * 60 * 1000), tz),
+        end: localDateKey(new Date(bounds.endMs + 24 * 60 * 60 * 1000), tz),
+        tz,
+      }
+    : period;
+
+  const allRecords: SessionRecord[] = [];
   if (adapter) {
     const ctx = { projectRoot: resolve('.'), homeDir, scope: 'all' as const };
-    for await (const record of adapter.readSessions(ctx, period)) records.push(record);
+    for await (const record of adapter.readSessions(ctx, fetchPeriod)) allRecords.push(record);
   }
 
+  const records = prevBounds ? allRecords.filter((r) => inRange(r.ts, bounds)) : allRecords;
   const metrics = computeMetrics(records, tz);
   const persona = classifyPersona(metrics);
   const activity = buildActivityStrip(records, tz, Math.min(bounds.endMs, now.getTime()));
 
-  return { ok: true, report: { period, periodLabel: periodLabel(period), tz, metrics, persona, activity } };
+  let trend: TrendComparison | null | undefined;
+  if (options.trend) {
+    if (!prevBounds) {
+      trend = null;
+    } else {
+      const previousRecords = allRecords.filter((r) => inRange(r.ts, prevBounds));
+      const previous = computeMetrics(previousRecords, tz);
+      const days = Math.round((bounds.endMs - bounds.startMs) / (24 * 60 * 60 * 1000));
+      trend = {
+        previousPeriodLabel: `previous ${days} day${days === 1 ? '' : 's'}`,
+        previous,
+        deltas: {
+          sessions: metrics.sessions - previous.sessions,
+          activeDays: metrics.activeDays - previous.activeDays,
+          tokens: totalTokens(metrics) - totalTokens(previous),
+          costUsd: metrics.cost.totalUsd !== null && previous.cost.totalUsd !== null ? metrics.cost.totalUsd - previous.cost.totalUsd : null,
+        },
+      };
+    }
+  }
+
+  return { ok: true, report: { period, periodLabel: periodLabel(period), tz, metrics, persona, activity, trend } };
 }

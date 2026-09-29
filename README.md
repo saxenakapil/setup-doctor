@@ -60,6 +60,7 @@ Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/
 | `--period 7d\|30d\|ytd\|all\|YYYY-MM-DD:YYYY-MM-DD` | wrapped | Time window (default `30d`) |
 | `--anonymize` / `--show-projects` | wrapped | Hide project names everywhere / show them on the card (default hidden) |
 | `--no-cost` | wrapped | Remove cost figures |
+| `--trend` | wrapped | Show the change vs the previous period of the same length (sessions, active days, tokens, cost); not available for `--period all` |
 | `--tz <IANA zone>` | wrapped | Timezone for date boundaries (default: local) |
 | `--out <path>` / `--yes` | doctor, badge, wrapped | Output folder / overwrite existing files without asking |
 | `--config <path>` | doctor, badge, rules, wrapped | Configuration file (default: `<path>/.setupdoctorrc`, see [`docs/guide/config.md`](docs/guide/config.md)); its `agent`/`scope`/`theme`/`minSeverity` fields act as real defaults for the equivalent flag |

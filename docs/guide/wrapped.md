@@ -112,6 +112,24 @@ npx setup-doctor wrapped --period 2026-01-01:2026-03-15   # a specific range, in
 
 `--tz <IANA zone>` controls which day boundaries "active days" and "busiest hour" use (default: your local timezone). Useful if you work across timezones and want a consistent report regardless of where you run it from.
 
+## `--trend`: this period vs the last one
+
+```bash
+npx setup-doctor wrapped --period 7d --trend
+```
+
+```
+$ npx setup-doctor wrapped --period 7d --trend --anonymize
+Setup Doctor Wrapped  7 days
+
+Sessions 2   Active days 8   Tokens 1,456,881,790   Est. cost* $531.96
+Trend vs previous 7 days: Sessions (-1)   Active days (no change)   Tokens (+798,529,767)   Est. cost* (+$123.65)
+Busiest hour 11:00   Busiest weekday Tuesday   Longest streak 8 days
+...
+```
+
+Compares the chosen `--period` against the immediately preceding window of the same length (the previous 7 days, the previous 30 days, and so on) -- read from local session logs already on disk, so no separate history file is kept the way `doctor --compare`'s score history is. Only the headline numbers get a delta (sessions, active days, tokens, cost): busiest hour, busiest weekday and the persona are point-in-time facts about the current period, not something that has a meaningful "change since last time." `--period all` has no well-defined previous period (it already covers everything), so `--trend` there just says so instead of showing a delta. `--format json` gets the same comparison as a `trend` field (present only when `--trend` was passed; `null` when not applicable) instead of the printed line. The shareable card itself does not show trend -- it stays exactly what `--trend`-less runs already produce.
+
 ## Privacy flags: what shows up in a shareable card
 
 By default, **project names never appear on the card**, only in your own local terminal report. This is deliberate, not an oversight: the card is meant to be posted publicly.

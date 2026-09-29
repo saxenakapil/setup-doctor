@@ -13,6 +13,7 @@ import { renderJsonReport } from './render/json.js';
 import { renderBadgeSvg, renderEndpointBadgeJson, renderMarkdownSnippet } from './render/badge.js';
 import { getTheme, isThemeName, THEME_NAMES, type ThemeName } from './render/themes/index.js';
 import { runWrapped } from './wrapped/run.js';
+import { totalTokens } from './wrapped/metrics.js';
 import { renderWrappedTerminalReport } from './render/terminal-wrapped.js';
 import { renderLandscapeCardSvg, renderPortraitCardSvg, type CardInput } from './render/card.js';
 import { renderSvgToPng } from './render/png.js';
@@ -74,6 +75,7 @@ Options:
   --anonymize  Hide project names everywhere, including the local report (wrapped)
   --no-cost    Remove cost figures (wrapped)
   --show-projects  Show project names on the card, default hidden (wrapped)
+  --trend      Show the change vs the previous period of the same length (wrapped)
   --fix        Propose safe, mechanical fixes for findings that support one (doctor)
   --dry-run    With --fix, show diffs and change nothing (doctor)
   --allow-dirty  With --fix, allow editing files in a project with uncommitted git changes (doctor)
@@ -516,8 +518,9 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
     const showProjects = flags['show-projects'] === true;
     const periodFlag = typeof flags.period === 'string' ? flags.period : '30d';
     const tz = typeof flags.tz === 'string' ? flags.tz : undefined;
+    const trendFlag = flags.trend === true;
 
-    const result = await runWrapped({ agent: agentFlag as Agent, homeDir, periodFlag, tz });
+    const result = await runWrapped({ agent: agentFlag as Agent, homeDir, periodFlag, tz, trend: trendFlag });
     if (!result.ok) {
       io.err(
         `Invalid --period value: ${periodFlag}\nValid values: 7d, 30d, ytd, all, or YYYY-MM-DD:YYYY-MM-DD`,
@@ -534,6 +537,19 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
       return 0;
     }
 
+    // Same privacy treatment as the current period's own topProjects:
+    // never on the card, hidden from every output under --anonymize, shown
+    // in the local report only with --show-projects.
+    const trendForOutput =
+      report.trend === undefined
+        ? undefined
+        : report.trend === null
+          ? null
+          : {
+              ...report.trend,
+              previous: { ...report.trend.previous, topProjects: anonymize ? [] : report.trend.previous.topProjects },
+            };
+
     if (format === 'json') {
       io.out(
         JSON.stringify(
@@ -546,6 +562,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
             tz: report.tz,
             metrics: { ...report.metrics, topProjects: localProjects, cost: showCost ? report.metrics.cost : undefined },
             persona: report.persona,
+            ...(trendFlag ? { trend: trendForOutput } : {}),
           },
           null,
           2,
@@ -561,6 +578,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
           showProjects: true, // already filtered into localProjects above
           priceTableAsOf: PRICE_TABLE_AS_OF,
           useColor: computeUseColor(flags, false),
+          trend: trendForOutput,
         }),
       );
     }
@@ -571,7 +589,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
       periodLabel: report.periodLabel,
       sessions: report.metrics.sessions,
       activeDays: report.metrics.activeDays,
-      totalTokens: report.metrics.tokens.input + report.metrics.tokens.output + report.metrics.tokens.cacheRead + report.metrics.tokens.cacheWrite,
+      totalTokens: totalTokens(report.metrics),
       costUsd: showCost ? report.metrics.cost.totalUsd : null,
       busiestHour: report.metrics.busiestHour,
       busiestWeekday: report.metrics.busiestWeekday,

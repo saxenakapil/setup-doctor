@@ -1,8 +1,9 @@
 // Terminal report for `wrapped`. See docs/scope.md section 12 (terminal
 // report is not themed). Not the same table as Doctor's; see terminal.ts.
 
-import type { WrappedMetrics } from '../wrapped/metrics.js';
+import { totalTokens, type WrappedMetrics } from '../wrapped/metrics.js';
 import type { Persona } from '../wrapped/persona.js';
+import type { TrendComparison } from '../wrapped/run.js';
 import { getAnsi } from './ansi.js';
 
 function formatNumber(n: number): string {
@@ -26,6 +27,32 @@ export interface WrappedTerminalInput {
   priceTableAsOf: string;
   /** Defaults to no color; pass true only after checking shouldUseColor. */
   useColor?: boolean;
+  // Present only when --trend was passed. Null means no well-defined
+  // previous period existed (period 'all'); a value renders one summary
+  // line, sessions/active days/tokens/cost only -- not busiest hour or any
+  // other point-in-time stat, which does not have a meaningful "delta".
+  trend?: TrendComparison | null;
+}
+
+function formatDelta(n: number, formatMagnitude: (magnitude: number) => string): string {
+  if (n === 0) return '(no change)';
+  const sign = n > 0 ? '+' : '-';
+  return `(${sign}${formatMagnitude(Math.abs(n))})`;
+}
+
+function formatCostMagnitude(n: number): string {
+  const abs = Math.abs(n);
+  return `$${abs < 0.01 && abs > 0 ? abs.toFixed(4) : abs.toFixed(2)}`;
+}
+
+function renderTrendLine(trend: TrendComparison, showCost: boolean): string {
+  const parts = [
+    `Sessions ${formatDelta(trend.deltas.sessions, formatNumber)}`,
+    `Active days ${formatDelta(trend.deltas.activeDays, formatNumber)}`,
+    `Tokens ${formatDelta(trend.deltas.tokens, formatNumber)}`,
+  ];
+  if (showCost && trend.deltas.costUsd !== null) parts.push(`Est. cost* ${formatDelta(trend.deltas.costUsd, formatCostMagnitude)}`);
+  return `Trend vs ${trend.previousPeriodLabel}: ${parts.join('   ')}`;
 }
 
 export function renderWrappedTerminalReport(input: WrappedTerminalInput): string {
@@ -43,10 +70,16 @@ export function renderWrappedTerminalReport(input: WrappedTerminalInput): string
   const headline = [
     `Sessions ${formatNumber(metrics.sessions)}`,
     `Active days ${formatNumber(metrics.activeDays)}`,
-    `Tokens ${formatNumber(metrics.tokens.input + metrics.tokens.output + metrics.tokens.cacheRead + metrics.tokens.cacheWrite)}`,
+    `Tokens ${formatNumber(totalTokens(metrics))}`,
   ];
   if (input.showCost) headline.push(`Est. cost* ${formatCost(metrics.cost.totalUsd)}`);
   lines.push(headline.join('   '));
+
+  if (input.trend) {
+    lines.push(renderTrendLine(input.trend, input.showCost));
+  } else if (input.trend === null) {
+    lines.push(`Trend: not available for --period all (no fixed-length previous period to compare against)`);
+  }
 
   lines.push(
     [

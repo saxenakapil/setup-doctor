@@ -555,6 +555,36 @@ describe('cli wrapped (deterministic fixture home)', () => {
     expect(svg).not.toContain('with Claude Code');
   });
 
+  it('--trend prints the delta line and the JSON output gets a trend field', async () => {
+    const trendHome = join(__dirname, 'fixtures', 'wrapped-trend', 'home');
+    const c = capture();
+    const code = await main(
+      ['wrapped', '--agent', 'claude', '--period', '2026-01-08:2026-01-14', '--tz', 'UTC', '--trend', '--out', outDir, '--yes'],
+      c.io,
+      trendHome,
+    );
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('Trend vs previous 7 days:');
+
+    const cJson = capture();
+    await main(
+      ['wrapped', '--agent', 'claude', '--period', '2026-01-08:2026-01-14', '--tz', 'UTC', '--trend', '--format', 'json'],
+      cJson.io,
+      trendHome,
+    );
+    const report = JSON.parse(cJson.out.join('\n'));
+    expect(report.trend.previousPeriodLabel).toBe('previous 7 days');
+    expect(report.trend.deltas.sessions).toBe(1);
+  });
+
+  it('without --trend, the JSON output has no trend field at all', async () => {
+    const trendHome = join(__dirname, 'fixtures', 'wrapped-trend', 'home');
+    const c = capture();
+    await main(['wrapped', '--agent', 'claude', '--period', '2026-01-08:2026-01-14', '--tz', 'UTC', '--format', 'json'], c.io, trendHome);
+    const report = JSON.parse(c.out.join('\n'));
+    expect('trend' in report).toBe(false);
+  });
+
   it('copilot wrapped against a real fixture home: real numbers, the card names Copilot not Claude Code, and writes card files', async () => {
     const copilotHome = join(__dirname, 'fixtures', 'wrapped-copilot', 'home');
     const c = capture();
