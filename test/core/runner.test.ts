@@ -32,7 +32,7 @@ describe('runner', () => {
     });
     expect(report.agentsDetected).toEqual(['claude']);
     expect(report.toolVersion).toBeTruthy();
-    expect(report.rulesVersion).toBe('1.0.0');
+    expect(report.rulesVersion).toBe('1.1.0');
     // The fixture deliberately plants a hardcoded MCP secret and an
     // overly-broad global permission rule to exercise MCP-03 and SET-01.
     const ruleIds = report.findings.map((f) => f.ruleId).sort();

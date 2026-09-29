@@ -15,6 +15,10 @@ Core product and v1 scope complete (Phases 1-8 of `docs/scope.md`).
 
 ## Rule set
 
+### 1.1.0
+
+- Three new settings/hooks rules, post-v1: SET-03 (a hook shells out to a network tool: curl, wget, nc, ncat, ssh, scp, rsync or telnet), SET-04 (a deny rule blanket-blocks all Bash commands, e.g. `Bash(*)`, likely blocking legitimate work too), SET-05 (a hook command references a secret-like environment variable, e.g. `$GITHUB_TOKEN`, which hook output capture could leak into logs; `possible`, capped scoring impact). `docs/rules.md` documents the frozen v1 rule set only; see `docs/notes.md` for these three rules' full detection logic.
+
 ### 1.0.0
 
 - Initial rule set: INS-01 to INS-08 (instructions), SKL-01 to SKL-06 (skills and subagents), MCP-01 to MCP-05 (MCP servers), PLG-01 to PLG-03 (plugins), SET-01 to SET-02 (settings and hooks), FRS-01 to FRS-02 (freshness). See `docs/rules.md` for the full specification of each rule.

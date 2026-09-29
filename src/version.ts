@@ -4,4 +4,4 @@ export const VERSION = '0.1.0';
 
 // The rule set's own version (docs/scope.md section 19). Bump when rules are
 // added or changed and record the change in CHANGELOG.md.
-export const RULES_VERSION = '1.0.0';
+export const RULES_VERSION = '1.1.0';

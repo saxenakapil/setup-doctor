@@ -1,11 +1,11 @@
+import { EXACT_BROAD_BASH_PATTERNS } from './broad-bash-patterns.js';
 import type { Finding, Rule } from '../core/types.js';
 
-const EXACT_DANGEROUS = new Set(['Bash', 'Bash(*)', 'Bash(:*)', '*']);
 const DANGEROUS_PREFIX_RE = /^(rm|sudo|chmod 777|curl|wget)/;
 const PIPE_TO_SHELL_RE = /\|\s*(sh|bash)\b/;
 
 function isDangerous(rule: string): boolean {
-  if (EXACT_DANGEROUS.has(rule)) return true;
+  if (EXACT_BROAD_BASH_PATTERNS.has(rule)) return true;
   const m = /^Bash\((.*)\)$/.exec(rule);
   if (!m) return false;
   const inner = (m[1] ?? '').trim();

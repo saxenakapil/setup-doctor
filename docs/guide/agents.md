@@ -2,7 +2,7 @@
 
 | Agent | Doctor | Wrapped |
 | --- | --- | --- |
-| Claude Code | Full (all 26 rules) | Supported |
+| Claude Code | Full (all 29 rules) | Supported |
 | Codex | Instructions + MCP servers only | Supported |
 | GitHub Copilot CLI | Instructions, skills, MCP servers, settings/hooks (no plugin concept) | Supported |
 | Cursor | Instructions + MCP servers only | Supported on Node 22.5+ |

@@ -24,6 +24,9 @@ import { plg02 } from './plg-02.js';
 import { plg03 } from './plg-03.js';
 import { set01 } from './set-01.js';
 import { set02 } from './set-02.js';
+import { set03 } from './set-03.js';
+import { set04 } from './set-04.js';
+import { set05 } from './set-05.js';
 import { frs01 } from './frs-01.js';
 import { frs02 } from './frs-02.js';
 import type { Rule } from '../core/types.js';
@@ -53,6 +56,9 @@ export const ALL_RULES: Rule[] = [
   plg03,
   set01,
   set02,
+  set03,
+  set04,
+  set05,
   frs01,
   frs02,
 ];
