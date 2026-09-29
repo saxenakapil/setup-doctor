@@ -209,6 +209,75 @@ describe('cli doctor (deterministic fixture home and project)', () => {
   });
 });
 
+describe('cli doctor: .setupdoctorrc (regression: was loaded and validated only by `rules`, never actually applied to a real doctor/badge run)', () => {
+  let homeDir: string;
+  let project: string;
+
+  beforeEach(() => {
+    homeDir = mkdtempSync(join(tmpdir(), 'setup-doctor-home-'));
+    project = mkdtempSync(join(tmpdir(), 'setup-doctor-project-'));
+    // Triggers FRS-01 (low) and INS-05 (low, "write clean code" is vague).
+    writeFileSync(join(project, 'CLAUDE.md'), 'This project targets Node 18.\nWrite clean code.\n');
+  });
+
+  afterEach(() => {
+    rmSync(homeDir, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('disabledRules in <project>/.setupdoctorrc actually suppresses that rule, not just in the `rules` listing', async () => {
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ disabledRules: ['FRS-01'] }));
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.findings.some((f: { ruleId: string }) => f.ruleId === 'FRS-01')).toBe(false);
+    expect(report.suppressed.some((f: { ruleId: string }) => f.ruleId === 'FRS-01')).toBe(true);
+  });
+
+  it('--config <path> loads a config file from a location other than <project>/.setupdoctorrc', async () => {
+    const customPath = join(homeDir, 'custom-config.json');
+    writeFileSync(customPath, JSON.stringify({ disabledRules: ['FRS-01', 'INS-05'] }));
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--config', customPath, '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.findings).toEqual([]);
+  });
+
+  it('exits 2 with a clear message when .setupdoctorrc contains invalid JSON', async () => {
+    writeFileSync(join(project, '.setupdoctorrc'), '{ not valid json');
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project'], c.io, homeDir);
+    expect(code).toBe(2);
+    expect(c.err.join('\n')).toContain('Invalid JSON');
+  });
+
+  it('badge also respects disabledRules (it scores through the same runDoctor path)', async () => {
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ disabledRules: ['FRS-01', 'INS-05'] }));
+    const outWithRc = mkdtempSync(join(tmpdir(), 'setup-doctor-out-'));
+    const outWithoutRc = mkdtempSync(join(tmpdir(), 'setup-doctor-out-'));
+    const otherProject = mkdtempSync(join(tmpdir(), 'setup-doctor-project-'));
+    try {
+      const withRc = capture();
+      await main(['badge', project, '--agent', 'claude', '--scope', 'project', '--out', outWithRc, '--yes'], withRc.io, homeDir);
+
+      writeFileSync(join(otherProject, 'CLAUDE.md'), 'This project targets Node 18.\nWrite clean code.\n');
+      const withoutRc = capture();
+      await main(['badge', otherProject, '--agent', 'claude', '--scope', 'project', '--out', outWithoutRc, '--yes'], withoutRc.io, homeDir);
+
+      // The rc-suppressed run should score strictly higher than the
+      // otherwise-identical project with no .setupdoctorrc.
+      const scoreOf = (out: string[]) => Number(/setup%20doctor-(\d+)/.exec(out.join(' '))?.[1]);
+      expect(scoreOf(withRc.out)).toBeGreaterThan(scoreOf(withoutRc.out));
+    } finally {
+      rmSync(otherProject, { recursive: true, force: true });
+      rmSync(outWithRc, { recursive: true, force: true });
+      rmSync(outWithoutRc, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('cli badge (deterministic fixture home and project)', () => {
   let homeDir: string;
   let project: string;

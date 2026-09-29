@@ -7,7 +7,7 @@ import { getAdapter, knownAgents } from '../adapters/index.js';
 import { listDirSafe, pathExists } from '../adapters/fs-utils.js';
 import { ALL_RULES } from '../rules/index.js';
 import { parseInlineSuppressions, applySuppressions } from './suppress.js';
-import { mergeConfig } from './config.js';
+import { loadConfigFile, mergeConfig } from './config.js';
 import { dedupSharedAcrossAgents } from './dedup.js';
 import { computeOverheadTokens, scoreFindings, type ScoreResult } from './scoring.js';
 import type { SetupDoctorConfig } from './types.js';
@@ -20,6 +20,9 @@ export interface RunOptions {
   scope?: Scope | 'all';
   homeDir?: string;
   config?: Partial<SetupDoctorConfig>;
+  // --config <path>: an explicit .setupdoctorrc-shaped file to load instead
+  // of <projectRoot>/.setupdoctorrc. See docs/scope.md section 7.
+  configPath?: string;
 }
 
 export function makeDiscoveryContext(options: RunOptions): DiscoveryContext {
@@ -218,7 +221,8 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
   const ctx = makeDiscoveryContext(options);
   const agents = await detectAgents(ctx, options.agent ?? 'auto');
   const model = await buildModel(ctx, agents);
-  const config = mergeConfig(null, options.config ?? {});
+  const { raw: fileConfig, warnings: configWarnings } = await loadConfigFile(ctx.projectRoot, options.configPath);
+  const config = mergeConfig(fileConfig, options.config ?? {});
   const sessions = await collectSessionsForRules(ctx, agents);
   const { kept, suppressed } = runRules(model, config, sessions);
   const { score, band, capped, categories } = scoreFindings(kept, model);
@@ -229,7 +233,7 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
     findings: kept,
     suppressed,
     skipped: model.skipped,
-    warnings: model.warnings,
+    warnings: [...configWarnings, ...model.warnings],
     model,
     score,
     band,

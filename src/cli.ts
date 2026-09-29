@@ -55,6 +55,7 @@ Options:
   --min-severity  low | medium | high | critical (doctor; hides findings, score is unaffected)
   --out <path> Output folder (doctor --format html/json with --out, badge)
   --yes        Overwrite existing output files without asking
+  --config <path>  Configuration file (default: <path>/.setupdoctorrc) (doctor, badge, rules)
   --endpoint   Also write the shields.io endpoint JSON (badge)
   --no-color   Disable ANSI color (also off for --ci, NO_COLOR, or a non-TTY output)
   --ci         No prompts, stable output (doctor)
@@ -246,12 +247,15 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
     failUnder = parsedFailUnder;
   }
 
+  const configPath = typeof flags.config === 'string' ? flags.config : undefined;
+
   try {
     const report = await runDoctor({
       path: positionals[0],
       agent: agentFlag as Agent | 'all',
       scope: scopeFlag as Scope | 'all',
       homeDir,
+      configPath,
     });
 
     if (report.agentsDetected.length === 0) {
@@ -336,6 +340,10 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
     }
     return 0;
   } catch (err) {
+    if (err instanceof ConfigParseError) {
+      io.err(err.message);
+      return 2;
+    }
     io.err(`setup-doctor doctor: internal error: ${(err as Error).message}\nPlease file an issue.`);
     return 4;
   }
@@ -347,6 +355,7 @@ async function runBadgeCommand(rest: string[], io: Io, homeDir?: string): Promis
   if (typeof parsed === 'number') return parsed;
   const { agentFlag, scopeFlag, themeFlag, outDir, yes } = parsed;
   const endpoint = flags.endpoint === true;
+  const configPath = typeof flags.config === 'string' ? flags.config : undefined;
 
   try {
     const report = await runDoctor({
@@ -354,6 +363,7 @@ async function runBadgeCommand(rest: string[], io: Io, homeDir?: string): Promis
       agent: agentFlag as Agent | 'all',
       scope: scopeFlag as Scope | 'all',
       homeDir,
+      configPath,
     });
 
     if (report.agentsDetected.length === 0) {
@@ -390,6 +400,10 @@ async function runBadgeCommand(rest: string[], io: Io, homeDir?: string): Promis
 
     return 0;
   } catch (err) {
+    if (err instanceof ConfigParseError) {
+      io.err(err.message);
+      return 2;
+    }
     io.err(`setup-doctor badge: internal error: ${(err as Error).message}\nPlease file an issue.`);
     return 4;
   }
@@ -525,10 +539,12 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
   }
 }
 
-async function runRulesCommand(io: Io): Promise<number> {
+async function runRulesCommand(rest: string[], io: Io): Promise<number> {
+  const { flags } = parseArgsAfterCommand(rest);
+  const configPath = typeof flags.config === 'string' ? flags.config : undefined;
   let config;
   try {
-    const { raw } = await loadConfigFile(process.cwd());
+    const { raw } = await loadConfigFile(process.cwd(), configPath);
     config = mergeConfig(raw, {});
   } catch (err) {
     if (err instanceof ConfigParseError) {
@@ -616,7 +632,7 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
     return runWrappedCommand(rest, io, homeDirOverride);
   }
   if (command === 'rules') {
-    return runRulesCommand(io);
+    return runRulesCommand(rest, io);
   }
   if (command === 'explain') {
     return runExplainCommand(rest, io);
