@@ -19,6 +19,7 @@ export const skl05: Rule = {
           category: 'skills',
           severity: 'medium',
           agent: skill.agent,
+          sharedWith: skill.sharedWith,
           file: skill.path,
           line: ref.line,
           message: `${skill.path}:${ref.line} links to ${ref.target} which does not exist`,

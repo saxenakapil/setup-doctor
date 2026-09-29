@@ -22,6 +22,7 @@ export const ins06: Rule = {
           category: 'instructions',
           severity: 'medium',
           agent: file.agent,
+          sharedWith: file.sharedWith,
           file: file.path,
           line: ref.line,
           message: `${file.path} mentions ${ref.target} which does not exist`,

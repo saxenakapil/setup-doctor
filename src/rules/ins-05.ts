@@ -31,6 +31,7 @@ export const ins05: Rule = {
           category: 'instructions',
           severity: 'low',
           agent: file.agent,
+          sharedWith: file.sharedWith,
           file: file.path,
           line: hits[0],
           message: `${hits.length} vague rules in ${file.path} (for example line ${hits[0]})`,

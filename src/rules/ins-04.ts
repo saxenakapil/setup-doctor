@@ -60,6 +60,7 @@ export const ins04: Rule = {
               category: 'instructions',
               severity: 'medium',
               agent,
+              sharedWith: p.sharedWith,
               file: p.file,
               line: p.lineNumber,
               message: `Possible contradiction between ${p.file}:${p.lineNumber} and ${n.file}:${n.lineNumber}`,

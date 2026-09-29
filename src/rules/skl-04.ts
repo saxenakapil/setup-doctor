@@ -20,6 +20,7 @@ export const skl04: Rule = {
         category: 'skills',
         severity: 'low',
         agent: skill.agent,
+        sharedWith: skill.sharedWith,
         file: skill.path,
         message: `${skill.path} has ${skill.lineCount} lines (limit ${maxLines})`,
         why: skl04.why,

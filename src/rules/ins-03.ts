@@ -84,6 +84,7 @@ export const ins03: Rule = {
           category: 'instructions',
           severity: 'medium',
           agent,
+          sharedWith: first.sharedWith,
           file: first.file,
           line: first.lineNumber,
           message,

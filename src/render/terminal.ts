@@ -3,8 +3,15 @@
 // decides NO_COLOR / non-TTY / --ci, this module just applies the result.
 
 import type { CategoryScore } from '../core/scoring.js';
-import type { Category, Finding, Severity, Skipped } from '../core/types.js';
+import type { Agent, Category, Finding, Severity, Skipped } from '../core/types.js';
 import { getAnsi, type Ansi } from './ansi.js';
+
+const AGENT_LABELS: Record<Agent, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  cursor: 'Cursor',
+  copilot: 'Copilot',
+};
 
 const CATEGORY_LABELS: Record<Category, string> = {
   instructions: 'Instruction files',
@@ -85,6 +92,10 @@ function colorForSeverity(severity: Severity, ansi: Ansi): Ansi['red'] {
 function renderFinding(f: Finding, ansi: Ansi): string {
   const label = colorForSeverity(f.severity, ansi)(SEVERITY_LABELS[f.severity].padEnd(4));
   const lines = [`${label}  ${ansi.bold(f.ruleId)}  ${f.message}`, `      Fix: ${f.fix}`];
+  if (f.sharedWith && f.sharedWith.length > 0) {
+    const others = f.sharedWith.map((a) => AGENT_LABELS[a]).join(', ');
+    lines.push(ansi.dim(`      Also affects: ${others} (same file)`));
+  }
   return lines.join('\n');
 }
 

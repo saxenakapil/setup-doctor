@@ -41,6 +41,7 @@ export const ins07: Rule = {
         category: 'instructions',
         severity: 'low',
         agent: first.agent,
+        sharedWith: first.sharedWith,
         file: first.path,
         message: `No build or test command documented in ${first.path}`,
         why: ins07.why,

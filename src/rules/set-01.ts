@@ -33,6 +33,7 @@ export const set01: Rule = {
         category: 'settings',
         severity: 'high',
         agent: permission.agent,
+        sharedWith: permission.sharedWith,
         file: permission.sourcePath,
         message: `Permission rule ${permission.rule} in ${permission.sourcePath} allows unrestricted or risky commands`,
         why: set01.why,

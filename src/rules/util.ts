@@ -8,6 +8,7 @@ import type { Agent, InstructionFile, Scope } from '../core/types.js';
 export interface TextLine {
   file: string;
   agent: Agent;
+  sharedWith?: Agent[];
   scope: Scope;
   lineNumber: number;
   raw: string;
@@ -29,6 +30,7 @@ export function collectTextLines(file: InstructionFile): TextLine[] {
     out.push({
       file: file.path,
       agent: file.agent,
+      sharedWith: file.sharedWith,
       scope: file.scope,
       lineNumber: idx + 1,
       raw,

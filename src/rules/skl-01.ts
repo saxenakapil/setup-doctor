@@ -18,6 +18,7 @@ export const skl01: Rule = {
           category: 'skills',
           severity: 'high',
           agent: skill.agent,
+          sharedWith: skill.sharedWith,
           file: skill.path,
           message: `${skill.path}: ${skill.frontmatterError}`,
           why: skl01.why,

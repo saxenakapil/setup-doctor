@@ -8,6 +8,7 @@ function overlapFinding(a: Skill, b: Skill): Finding {
     category: 'skills',
     severity: 'medium',
     agent: a.agent,
+    sharedWith: a.sharedWith,
     file: a.path,
     message: `Skills ${a.name ?? a.path} and ${b.name ?? b.path} have overlapping descriptions`,
     why: 'Overlapping triggers make the agent pick the wrong skill or load both.',

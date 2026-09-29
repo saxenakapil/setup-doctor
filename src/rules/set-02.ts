@@ -20,6 +20,7 @@ export const set02: Rule = {
         category: 'settings',
         severity: 'high',
         agent: hook.agent,
+        sharedWith: hook.sharedWith,
         file: hook.sourcePath,
         message: `Hook ${hook.event} in ${hook.sourcePath} points to ${check.resolvedPath} which is missing or not executable`,
         why: set02.why,

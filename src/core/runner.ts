@@ -8,6 +8,7 @@ import { listDirSafe, pathExists } from '../adapters/fs-utils.js';
 import { ALL_RULES } from '../rules/index.js';
 import { parseInlineSuppressions, applySuppressions } from './suppress.js';
 import { mergeConfig } from './config.js';
+import { dedupSharedAcrossAgents } from './dedup.js';
 import { computeOverheadTokens, scoreFindings, type ScoreResult } from './scoring.js';
 import type { SetupDoctorConfig } from './types.js';
 import { RULES_VERSION, VERSION } from '../version.js';
@@ -104,6 +105,18 @@ export async function buildModel(ctx: DiscoveryContext, agents: Agent[]): Promis
       model.warnings.push(...result.warnings);
     }
   }
+
+  // Two or more agents can read the exact same file (e.g. a project's
+  // .mcp.json, or .claude/skills, which Copilot CLI also reads directly).
+  // Collapse those into one item per real file/entry before rules ever see
+  // them, so a genuine problem is scored once, not once per agent that
+  // happens to read it. See docs/notes.md's Phase 3 entry.
+  model.instructions = dedupSharedAcrossAgents(model.instructions);
+  model.skills = dedupSharedAcrossAgents(model.skills);
+  model.mcpServers = dedupSharedAcrossAgents(model.mcpServers);
+  model.hooks = dedupSharedAcrossAgents(model.hooks);
+  model.permissions = dedupSharedAcrossAgents(model.permissions);
+  model.mcpConfigErrors = dedupSharedAcrossAgents(model.mcpConfigErrors);
 
   model.instructions.sort((a, b) => a.path.localeCompare(b.path));
   model.skills.sort((a, b) => a.path.localeCompare(b.path));

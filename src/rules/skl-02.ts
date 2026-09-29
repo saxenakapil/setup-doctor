@@ -24,6 +24,7 @@ export const skl02: Rule = {
         category: 'skills',
         severity: 'medium',
         agent: skill.agent,
+        sharedWith: skill.sharedWith,
         file: skill.path,
         message: `Skill ${skill.name ?? skill.path} has a description of ${len} characters (${label})`,
         why: skl02.why,

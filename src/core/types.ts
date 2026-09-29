@@ -1,7 +1,7 @@
 // Shared types for the normalized model, adapters and rules.
 // See docs/scope.md section 9 (and 8.1 for the subagent and @import additions).
 
-export type Agent = 'claude' | 'codex' | 'cursor';
+export type Agent = 'claude' | 'codex' | 'cursor' | 'copilot';
 export type Scope = 'global' | 'project';
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
 export type Category = 'instructions' | 'skills' | 'mcp' | 'plugins' | 'settings' | 'freshness';
@@ -11,6 +11,10 @@ export interface SourceRef {
   scope: Scope;
   path: string;
   sizeBytes: number;
+  // Other agents that read this exact same file (e.g. Copilot CLI reading
+  // .claude/skills). Populated by buildModel's cross-agent dedup pass, not
+  // by adapters themselves. See docs/notes.md's Phase 3 entry.
+  sharedWith?: Agent[];
 }
 
 // Path or script references found in a project instruction file (INS-06).
@@ -62,6 +66,8 @@ export interface McpServer {
   // applicable (a `url` server, no command, or disabled). Computed by the
   // adapter, which does the PATH/filesystem check, so the rule stays pure.
   commandFound?: boolean;
+  // See SourceRef.sharedWith.
+  sharedWith?: Agent[];
 }
 
 export interface PluginInfo {
@@ -93,6 +99,8 @@ export interface HookDef {
   event: string;
   command: string;
   scriptCheck?: HookScriptCheck;
+  // See SourceRef.sharedWith.
+  sharedWith?: Agent[];
 }
 
 export interface PermissionRule {
@@ -101,6 +109,8 @@ export interface PermissionRule {
   sourcePath: string;
   kind: 'allow' | 'deny' | 'ask';
   rule: string;
+  // See SourceRef.sharedWith.
+  sharedWith?: Agent[];
 }
 
 export interface SessionUsage {
@@ -133,6 +143,8 @@ export interface ConfigError {
   scope: Scope;
   sourcePath: string;
   message: string;
+  // See SourceRef.sharedWith.
+  sharedWith?: Agent[];
 }
 
 export interface AdapterResult<T> {
@@ -165,6 +177,12 @@ export interface Finding {
   category: Category;
   severity: Severity;
   agent?: Agent;
+  // Other agents that also read the file this finding is about (e.g. a
+  // shared .mcp.json read by both Claude Code and Copilot CLI). Absent
+  // when the underlying file is only ever read by `agent`. See
+  // SourceRef.sharedWith; propagated onto the Finding by the rule that
+  // builds it, from the model item's own sharedWith.
+  sharedWith?: Agent[];
   file?: string;
   line?: number;
   message: string;

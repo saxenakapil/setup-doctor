@@ -18,6 +18,7 @@ export const mcp03: Rule = {
           category: 'mcp',
           severity: 'critical',
           agent: server.agent,
+          sharedWith: server.sharedWith,
           file: server.sourcePath,
           message: `MCP server ${server.name} has a hardcoded secret in env ${key} ([REDACTED])`,
           why: mcp03.why,

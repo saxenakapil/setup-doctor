@@ -4,7 +4,14 @@
 import { embeddedFontFaceCss } from './fonts.js';
 import type { Theme } from './themes/index.js';
 import type { CategoryScore } from '../core/scoring.js';
-import type { Category, Finding, Severity, Skipped } from '../core/types.js';
+import type { Agent, Category, Finding, Severity, Skipped } from '../core/types.js';
+
+const AGENT_LABELS: Record<Agent, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  cursor: 'Cursor',
+  copilot: 'Copilot',
+};
 
 const CATEGORY_LABELS: Record<Category, string> = {
   instructions: 'Instruction files',
@@ -125,6 +132,7 @@ function renderFindingCard(theme: Theme, f: Finding): string {
       </div>
       <div class="message">${escapeHtml(f.message)}</div>
       <div class="fix">Fix: ${escapeHtml(f.fix)}</div>
+      ${f.sharedWith && f.sharedWith.length > 0 ? `<div class="fix">Also affects: ${escapeHtml(f.sharedWith.map((a) => AGENT_LABELS[a]).join(', '))} (same file)</div>` : ''}
     </div>`;
 }
 

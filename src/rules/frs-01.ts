@@ -40,6 +40,7 @@ export const frs01: Rule = {
         category: 'freshness',
         severity: 'low',
         agent: file.agent,
+        sharedWith: file.sharedWith,
         file: file.path,
         message: `${count} hard-pinned versions in ${file.path} (for example "${example}")`,
         why: frs01.why,

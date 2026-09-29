@@ -20,6 +20,7 @@ export const ins08: Rule = {
           category: 'instructions',
           severity: 'critical',
           agent: file.agent,
+          sharedWith: file.sharedWith,
           file: file.path,
           line: idx + 1,
           message: `Secret-like value in ${file.path}:${idx + 1} ([REDACTED])`,

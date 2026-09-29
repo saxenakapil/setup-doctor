@@ -33,6 +33,7 @@ export const ins02: Rule = {
         category: 'instructions',
         severity,
         agent: file.agent,
+        sharedWith: file.sharedWith,
         file: file.path,
         message: `${file.path} is about ${file.estTokens} tokens (limit ${limit})`,
         why: ins02.why,
