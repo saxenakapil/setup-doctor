@@ -128,3 +128,34 @@ describe('backupFiles and applyFixes', () => {
     expect(backupPath).toBeNull();
   });
 });
+
+describe('planFixes: CRLF-checked-out files (regression)', () => {
+  // A file with Windows line endings (as git on Windows checks fixtures out
+  // by default, before .gitattributes forced LF) must not break line
+  // numbering or leave stray \r characters in the fixed content. This does
+  // not depend on the local git checkout's actual line endings -- it writes
+  // CRLF directly, so it catches the bug on every platform, not just CI's
+  // Windows runners.
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'setup-doctor-crlf-'));
+    writeFileSync(join(dir, 'CLAUDE.md'), 'Always run the tests before committing.\r\nUse 2 space indentation.\r\nAlways run the tests before committing.\r\n');
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('produces the correct fixed content with no stray \\r characters', async () => {
+    const ctx = makeDiscoveryContext({ path: dir, homeDir: NO_HOME });
+    const agents = await detectAgents(ctx, 'auto');
+    const model = await buildModel(ctx, agents);
+    const { kept } = runRules(model, DEFAULT_CONFIG);
+
+    const { plans } = await planFixes(model, kept, { ctx, scopeFlag: 'all', allowDirty: false });
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.after).toBe('Always run the tests before committing.\nUse 2 space indentation.\n');
+    expect(plans[0]?.after).not.toContain('\r');
+  });
+});

@@ -87,10 +87,15 @@ export async function planFixes(
       skipped.push({ finding, reason: `could not read file: ${read.reason}` });
       continue;
     }
+    // Line numbers on the finding were computed by the rule against the
+    // model's already-normalized text (adapters strip \r\n to \n at
+    // discovery time). Normalize the same way here so a fresh read of a
+    // CRLF-checked-out file (e.g. git on Windows) still lines up.
+    const normalizedText = read.text.replace(/\r\n/g, '\n');
 
     if (finding.fixHint.kind === 'remove-lines') {
-      const after = applyLineRemoval(read.text, finding.fixHint.lines);
-      if (after === read.text) {
+      const after = applyLineRemoval(normalizedText, finding.fixHint.lines);
+      if (after === normalizedText) {
         skipped.push({ finding, reason: 'nothing to change' });
         continue;
       }
@@ -99,9 +104,9 @@ export async function planFixes(
         displayPath: finding.file,
         absolutePath,
         scope,
-        before: read.text,
+        before: normalizedText,
         after,
-        diff: renderDeletionDiff(finding.file, read.text, finding.fixHint.lines),
+        diff: renderDeletionDiff(finding.file, normalizedText, finding.fixHint.lines),
         findingMessage: finding.message,
       });
     } else {

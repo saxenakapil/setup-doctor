@@ -1,0 +1,8 @@
+# Force LF everywhere, regardless of the checkout platform's git config
+# (e.g. Git for Windows commonly defaults core.autocrlf=true). Several test
+# fixtures encode exact byte content (line-removal fixes, token-count
+# fixtures, JSONL parsing fixtures); a CRLF checkout on Windows CI silently
+# broke fix mode's line-numbering by introducing stray \r characters the
+# rest of the tool doesn't expect. See docs/notes.md (Phase 8) for the bug
+# this caused.
+* text=auto eol=lf
