@@ -1,6 +1,6 @@
 {
   "name": "setup-doctor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Score and improve your AI coding agent setup. Audits CLAUDE.md, skills, MCP servers and plugins, and shows a shareable usage summary. Local-only.",
   "author": {
     "name": "Kapil Saxena"

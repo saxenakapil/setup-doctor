@@ -2,9 +2,7 @@
 
 All notable changes are listed here. The format follows Keep a Changelog and the project uses semantic versioning. The rule set has its own version (`rulesVersion`), listed separately below.
 
-## Unreleased
-
-Built after 0.1.0 was published; not yet released to npm.
+## 0.2.0 (2026-09-29)
 
 - **GitHub Action: PR score-change comment.** A new `docs/examples/pr-comment-workflow.yml` scores a pull request's base and head directly in the same job (a real `git worktree` checkout, not a cached score) and posts or updates a single PR comment with the delta. Also fixed a real bug in the already-shipped score-history CI example: a fixed `actions/cache` key only ever saves once, so history silently stopped growing after its first run.
 - **MCP server mode** (`mcp` command): exposes `doctor` and `wrapped` as read-only tools over stdio for Claude Desktop and other MCP clients, reusing the same `runDoctor()`/`runWrapped()` the CLI already uses. No `--fix` equivalent. Two new runtime dependencies (`@modelcontextprotocol/sdk`, `zod`), kept external to `dist/bin.js` rather than bundled.

@@ -9,7 +9,7 @@
       "name": "setup-doctor",
       "source": "./",
       "description": "Score and improve your AI coding agent setup. Local-only, open source.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ]
 }
