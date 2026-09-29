@@ -1,0 +1,8 @@
+{"id":"f1","parentId":null,"timestamp":"2026-01-02T09:00:00.000Z","type":"session.start","data":{"sessionId":"sess-b","context":{"cwd":"/Users/dev/project-b"}}}
+{"id":"f2","parentId":"f1","timestamp":"2026-01-02T09:00:01.000Z","type":"user.message","data":{"content":"say hi","turnId":"t1"}}
+{"id":"f3","parentId":"f2","timestamp":"2026-01-02T09:00:02.000Z","type":"assistant.message","data":{"model":"gpt-6-sol","turnId":"t1","toolRequests":[]}}
+{"id":"f4","parentId":"f3","timestamp":"2026-01-02T09:00:03.000Z","type":"session.shutdown","data":{"shutdownType":"routine","currentModel":"gpt-6-sol","modelMetrics":{"gpt-6-sol":{"requests":{"count":1,"cost":1},"usage":{"inputTokens":100,"outputTokens":10,"cacheReadTokens":0,"cacheWriteTokens":0,"reasoningTokens":0},"totalNanoAiu":5000000}}}}
+{"id":"f5","parentId":"f4","timestamp":"2026-01-02T09:30:00.000Z","type":"session.start","data":{"sessionId":"sess-b","context":{"cwd":"/Users/dev/project-b"}}}
+{"id":"f6","parentId":"f5","timestamp":"2026-01-02T09:30:01.000Z","type":"user.message","data":{"content":"now list files","turnId":"t2"}}
+{"id":"f7","parentId":"f6","timestamp":"2026-01-02T09:30:02.000Z","type":"assistant.message","data":{"model":"gpt-6-luna","turnId":"t2","toolRequests":[{"toolCallId":"c2","name":"bash","arguments":{"command":"ls"}}]}}
+{"id":"f8","parentId":"f7","timestamp":"2026-01-02T09:30:03.000Z","type":"session.shutdown","data":{"shutdownType":"routine","currentModel":"gpt-6-luna","modelMetrics":{"gpt-6-luna":{"requests":{"count":1,"cost":1},"usage":{"inputTokens":300,"outputTokens":20,"cacheReadTokens":0,"cacheWriteTokens":0,"reasoningTokens":0},"totalNanoAiu":8000000}}}}

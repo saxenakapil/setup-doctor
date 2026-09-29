@@ -482,11 +482,12 @@ describe('cli wrapped (deterministic fixture home)', () => {
     expect(code).toBe(2);
   });
 
-  it('prints "not supported" for copilot and exits 0', async () => {
+  it('copilot is supported: "no sessions" when the fixture home has none, not "not supported"', async () => {
     const c = capture();
     const code = await main(['wrapped', '--agent', 'copilot', '--out', outDir], c.io, WRAPPED_HOME);
     expect(code).toBe(0);
-    expect(c.out.join('\n')).toContain('not supported for copilot yet');
+    expect(c.out.join('\n')).toContain('No sessions in this period');
+    expect(c.out.join('\n')).not.toContain('not supported');
   });
 
   it('codex is supported: "no sessions" when the fixture home has none, not "not supported"', async () => {
@@ -523,11 +524,12 @@ describe('cli wrapped (deterministic fixture home)', () => {
 
   it('an explicit --agent flag still wins over .setupdoctorrc for wrapped', async () => {
     const configFile = join(outDir, 'wrapped-config.json');
-    writeFileSync(configFile, JSON.stringify({ agent: 'codex' }));
+    writeFileSync(configFile, JSON.stringify({ agent: 'codex' })); // no codex data in WRAPPED_HOME
     const c = capture();
-    const code = await main(['wrapped', '--config', configFile, '--agent', 'copilot', '--out', outDir], c.io, WRAPPED_HOME);
+    const code = await main(['wrapped', '--config', configFile, '--agent', 'claude', '--period', 'all', '--out', outDir, '--yes'], c.io, WRAPPED_HOME);
     expect(code).toBe(0);
-    expect(c.out.join('\n')).toContain('not supported for copilot yet');
+    // Real Claude session data in WRAPPED_HOME proves --agent claude won, not config's codex (which has none here).
+    expect(c.out.join('\n')).not.toContain('No sessions in this period');
   });
 
   it('exits 2 with a clear message when wrapped\'s --config file contains invalid JSON', async () => {
@@ -550,6 +552,20 @@ describe('cli wrapped (deterministic fixture home)', () => {
     expect(existsSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'))).toBe(true);
     const svg = readFileSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'), 'utf8');
     expect(svg).toContain('with Codex');
+    expect(svg).not.toContain('with Claude Code');
+  });
+
+  it('copilot wrapped against a real fixture home: real numbers, the card names Copilot not Claude Code, and writes card files', async () => {
+    const copilotHome = join(__dirname, 'fixtures', 'wrapped-copilot', 'home');
+    const c = capture();
+    const code = await main(['wrapped', '--agent', 'copilot', '--period', 'all', '--tz', 'UTC', '--out', outDir, '--yes'], c.io, copilotHome);
+    expect(code).toBe(0);
+    const text = c.out.join('\n');
+    expect(text).toContain('Sessions 2');
+    expect(text).toContain('bash');
+    expect(existsSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'))).toBe(true);
+    const svg = readFileSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'), 'utf8');
+    expect(svg).toContain('with Copilot');
     expect(svg).not.toContain('with Claude Code');
   });
 

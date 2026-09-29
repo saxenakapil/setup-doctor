@@ -3,10 +3,11 @@
 ```bash
 npx setup-doctor wrapped                    # Claude Code (default)
 npx setup-doctor wrapped --agent codex      # Codex
+npx setup-doctor wrapped --agent copilot    # GitHub Copilot CLI
 npx setup-doctor wrapped --agent cursor     # Cursor (needs Node 22.5+)
 ```
 
-Summarizes your local session logs into a terminal report plus a shareable SVG/PNG card, in the style of a "year in review." Supported for Claude Code (`~/.claude/projects/**/*.jsonl`), Codex (`~/.codex/sessions/**/*.jsonl`) and Cursor (`state.vscdb`, read via the built-in `node:sqlite` module, Node 22.5+ only); see [`agents.md`](agents.md) for what each one reads and why Copilot is not supported yet.
+Summarizes your local session logs into a terminal report plus a shareable SVG/PNG card, in the style of a "year in review." Supported for Claude Code (`~/.claude/projects/**/*.jsonl`), Codex (`~/.codex/sessions/**/*.jsonl`), GitHub Copilot CLI (`~/.copilot/session-state/<id>/events.jsonl`) and Cursor (`state.vscdb`, read via the built-in `node:sqlite` module, Node 22.5+ only); see [`agents.md`](agents.md) for what each one reads.
 
 A real run (against a small synthetic dataset, not anyone's real usage) looks like this:
 
@@ -46,6 +47,27 @@ Persona: Steady Builder. Steady, consistent use.
 ```
 
 Codex's "top tools" are its own event types (`CommandExecution`, and others as they show up in real usage), not Claude Code's tool names (`Bash`, `Edit`, and so on): the two agents don't share a vocabulary here, so do not expect the same labels across agents.
+
+A real Copilot CLI run:
+
+```
+$ npx setup-doctor wrapped --agent copilot --period all --anonymize
+Setup Doctor Wrapped  all time
+
+Sessions 3   Active days 2   Tokens 246,390   Est. cost* $0.0065
+Busiest hour 15:00   Busiest weekday Sunday   Longest streak 1 day
+Cache hit rate 34%
+
+Top models: mai-code-1.1-flash (69%), gpt-6-luna (31%)
+Top tools: bash
+
+Persona: Steady Builder. Steady, consistent use.
+
+* API-equivalent estimate, not your bill. Price table as of 2026-09-29.
+  One or more models are not in the price table; their cost shows as n/a.
+```
+
+Copilot's own CLI already aggregates token usage per model for you (visible in its own terminal output as "AI Credits" and a token count), so unlike Claude Code and Codex, this parser never sums anything itself: it reads Copilot's own final per-model totals from the session's `session.shutdown` event once. A model outside the price table (like `mai-code-1.1-flash` here) shows as `n/a`, the same "not guessed at" behavior as Cursor's `default`.
 
 A real Cursor run, on Node 22.5+:
 

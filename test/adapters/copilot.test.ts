@@ -90,10 +90,22 @@ describe('copilot adapter', () => {
     expect((await copilotAdapter.readPlugins(ctx)).items).toEqual([]);
   });
 
-  it('readSessions always yields nothing (not verified against a real install)', async () => {
+  it('readSessions yields nothing when the fixture home has no .copilot/session-state', async () => {
     const out = [];
     for await (const r of copilotAdapter.readSessions(ctx, { kind: 'all' })) out.push(r);
     expect(out).toEqual([]);
+  });
+
+  it('readSessions reads real session records end to end through the adapter', async () => {
+    const wrappedCtx: DiscoveryContext = {
+      projectRoot: join(FIXTURES, 'typical', 'project'),
+      homeDir: join(__dirname, '..', 'fixtures', 'wrapped-copilot', 'home'),
+      scope: 'all',
+    };
+    const out = [];
+    for await (const r of copilotAdapter.readSessions(wrappedCtx, { kind: 'all' })) out.push(r);
+    expect(out.length).toBeGreaterThan(0);
+    expect(out.every((r) => r.agent === 'copilot')).toBe(true);
   });
 
   it('does not auto-detect from shared-only signals alone (.mcp.json, .claude/skills, .claude/settings.json)', async () => {

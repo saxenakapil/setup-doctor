@@ -78,7 +78,7 @@ Options:
   --dry-run    With --fix, show diffs and change nothing (doctor)
   --allow-dirty  With --fix, allow editing files in a project with uncommitted git changes (doctor)
 
-Status: doctor, badge, wrapped (Claude Code, Codex, Cursor with Node 22.5+) and doctor --fix are implemented.
+Status: doctor, badge, wrapped (Claude Code, Codex, Copilot, Cursor with Node 22.5+) and doctor --fix are implemented.
 See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
@@ -497,10 +497,6 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
     if (!AGENT_VALUES.has(agentFlag)) {
       io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
       return 2;
-    }
-    if (agentFlag === 'copilot') {
-      io.out(`Wrapped is not supported for ${agentFlag} yet`);
-      return 0;
     }
     if (agentFlag === 'cursor' && !(await loadSqlite())) {
       io.out(

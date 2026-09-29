@@ -1,0 +1,12 @@
+{"id":"e1","parentId":null,"timestamp":"2026-01-01T10:00:00.000Z","type":"session.start","data":{"sessionId":"sess-a","version":1,"producer":"copilot-agent","copilotVersion":"1.0.89","startTime":"2026-01-01T10:00:00.000Z","context":{"cwd":"/Users/dev/project-a","gitRoot":"/Users/dev/project-a","branch":"main"}}}
+this is not valid json at all
+{"id":"e2","parentId":"e1","timestamp":"2026-01-01T10:00:01.000Z","type":"user.message","data":{"content":"fix the bug","interactionId":"i1","turnId":"t1"}}
+{"id":"e3","parentId":"e2","timestamp":"2026-01-01T10:00:02.000Z","type":"assistant.turn_start","data":{"turnId":"t1"}}
+{"id":"e4","parentId":"e3","timestamp":"2026-01-01T10:00:03.000Z","type":"assistant.message","data":{"model":"gpt-6-luna","turnId":"t1","toolRequests":[{"toolCallId":"c1","name":"bash","arguments":{"command":"cat main.py"}}]}}
+{"id":"e5","parentId":"e4","timestamp":"2026-01-01T10:00:04.000Z","type":"tool.execution_complete","data":{"toolCallId":"c1"}}
+{"id":"e6","parentId":"e5","timestamp":"2026-01-01T10:00:04.500Z","type":"assistant.turn_end","data":{"turnId":"t1"}}
+{"id":"e7","parentId":"e6","timestamp":"2026-01-01T10:00:05.000Z","type":"assistant.turn_start","data":{"turnId":"t2"}}
+{"id":"e8","parentId":"e7","timestamp":"2026-01-01T10:00:06.000Z","type":"assistant.message","data":{"model":"gpt-6-luna","turnId":"t2","toolRequests":[]}}
+{"id":"e9","parentId":"e8","timestamp":"2026-01-01T10:00:06.500Z","type":"assistant.turn_end","data":{"turnId":"t2"}}
+{"id":"e10","parentId":"e9","timestamp":"2026-01-01T10:00:07.000Z","type":"session.usage_checkpoint","data":{"totalNanoAiu":169455000,"totalPremiumRequests":1}}
+{"id":"e11","parentId":"e10","timestamp":"2026-01-01T10:00:07.500Z","type":"session.shutdown","data":{"shutdownType":"routine","currentModel":"gpt-6-luna","modelMetrics":{"gpt-6-luna":{"requests":{"count":2,"cost":1},"usage":{"inputTokens":1000,"outputTokens":50,"cacheReadTokens":200,"cacheWriteTokens":0,"reasoningTokens":0},"totalNanoAiu":169455000}}}}

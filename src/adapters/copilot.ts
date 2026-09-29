@@ -45,12 +45,11 @@
 //   about them. Flagging an http hook as its own risky-permission-style
 //   signal is the same backlog item as "hooks that shell out to network
 //   tools" already tracked in docs/notes.md, not a gap specific to Copilot.
-// - readSessions always yields nothing. Copilot CLI's session log
-//   (~/.copilot/session-state/<id>/events.jsonl) is, unusually, a
-//   documented plain JSONL format rather than an opaque SQLite file like
-//   Codex/Cursor -- a real candidate for a future Wrapped adapter -- but
-//   verifying the actual schema against a real log needs a real local
-//   install, which was not available here. See docs/notes.md backlog.
+// - Wrapped is supported: ~/.copilot/session-state/<id>/events.jsonl,
+//   verified against a real local install (see docs/notes.md and
+//   src/wrapped/parse-copilot.ts). Unlike Codex/Cursor's SQLite state,
+//   this needed no reverse-engineering: the real file matched the
+//   documented shape this comment already described.
 
 import { join } from 'node:path';
 import { estimateTokens } from '../core/tokens.js';
@@ -58,6 +57,8 @@ import { extractInlineCodePaths, extractScriptCommands } from '../core/text.js';
 import { toDisplayPath } from './display-path.js';
 import { isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
 import { parseMcpJsonFile } from './mcp-json-shape.js';
+import { resolvePeriodBounds } from '../wrapped/period.js';
+import { readAllSessions as readAllCopilotSessions } from '../wrapped/parse-copilot.js';
 import { computeHookScriptCheck, readClaudeSettingsFile } from './claude-settings-shape.js';
 import { collectSkillFolders } from './skill-shape.js';
 import type {
@@ -352,12 +353,9 @@ async function detect(ctx: DiscoveryContext): Promise<boolean> {
   return false;
 }
 
-async function* readSessions(_ctx: DiscoveryContext, _period: Period): AsyncGenerator<SessionRecord> {
-  // See the file header: a documented JSONL format exists but was not
-  // verified against a real local install. Matches section 11.7's "not
-  // supported yet" fallback.
-  void _ctx;
-  void _period;
+async function* readSessions(ctx: DiscoveryContext, period: Period): AsyncGenerator<SessionRecord> {
+  const bounds = resolvePeriodBounds(period, new Date());
+  yield* readAllCopilotSessions(ctx.homeDir, bounds);
 }
 
 export const copilotAdapter: Adapter = {

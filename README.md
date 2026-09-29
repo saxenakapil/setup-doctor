@@ -15,7 +15,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 ## What it does
 
 - **Doctor**: audits instruction files (`CLAUDE.md` / `.github/copilot-instructions.md` / `AGENTS.md` / `.cursorrules`), skills, subagents, MCP servers, plugins, settings and hooks. Runs 26 rules across 6 categories and returns a score, a band (Excellent / Good / Needs work / Poor), and a specific fix for every finding.
-- **Wrapped**: summarizes your local session logs (Claude Code, Codex or Cursor) (sessions, active days, tokens, an API-equivalent cost estimate, streaks, busiest hour, a persona label) into a shareable card, in three visual themes and two sizes, with optional PNG export.
+- **Wrapped**: summarizes your local session logs (Claude Code, Codex, GitHub Copilot CLI or Cursor) (sessions, active days, tokens, an API-equivalent cost estimate, streaks, busiest hour, a persona label) into a shareable card, in three visual themes and two sizes, with optional PNG export.
 - **Badge**: a static or live (shields.io endpoint) README badge showing your current score.
 - **HTML report**: a single self-contained, themed report file. No network requests, strict Content-Security-Policy, everything inlined.
 
@@ -25,7 +25,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 | --- | --- | --- |
 | [Claude Code](https://claude.com/claude-code) | Full (all 26 rules) | Supported |
 | [Codex](https://developers.openai.com/codex) | Instructions + MCP rules | Supported |
-| [GitHub Copilot CLI](https://docs.github.com/en/copilot) | Instructions, skills, MCP and settings/hooks rules | Not supported yet (Copilot's session log is a documented JSONL format, same shape of source Codex's turned out to be, but was not verified against a real local install; see [`docs/notes.md`](docs/notes.md)) |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot) | Instructions, skills, MCP and settings/hooks rules | Supported |
 | [Cursor](https://cursor.com) | Instructions + MCP rules | Supported on Node 22.5+ (reads Cursor's local `state.vscdb` via the built-in `node:sqlite` module; verified against a real Cursor install, see [`docs/notes.md`](docs/notes.md)) |
 
 Skills, subagents, plugins, settings and hooks checks are Claude Code/Copilot-specific; those categories are simply excluded from the score for Codex/Cursor-only setups rather than counted against you. Copilot CLI is documented to read several of Claude Code's own files directly (`.claude/skills`, `.claude/settings.json`, and the "portable format" `.mcp.json`); when a project is detected as both agents, a real problem in one of those shared files is scored once, not once per agent, and the report notes which other agent it also affects.
