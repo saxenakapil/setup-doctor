@@ -1,0 +1,9 @@
+{
+  "name": "setup-doctor",
+  "version": "0.0.1",
+  "description": "Score and improve your AI coding agent setup. Local-only, open source.",
+  "license": "MIT",
+  "author": "Kapil Saxena",
+  "keywords": ["claude-code", "ai-agents", "audit", "cli"],
+  "files": ["README.md"]
+}
