@@ -11,6 +11,7 @@ Built after 0.1.0 was published; not yet released to npm.
 - **`.setupdoctorrc`'s new `ignore` field**: glob patterns (relative to the project root) to exclude paths from discovery entirely, not just from the findings list. Applies to nested instruction-file discovery and project-scope skill/subagent folders. See [`docs/guide/config.md`](docs/guide/config.md).
 - **Cursor skills** (`skills-cursor/`): the same `doctor` and `wrapped` skills already shipped for the Claude Code plugin, adapted and ready to copy into `.cursor/skills/`. See [`docs/guide/cursor-skills.md`](docs/guide/cursor-skills.md).
 - **Homebrew tap**: `brew install saxenakapil/setup-doctor/setup-doctor`, from the separate [`saxenakapil/homebrew-setup-doctor`](https://github.com/saxenakapil/homebrew-setup-doctor) repository. Tracks new npm releases automatically via a daily autobump check.
+- **GitHub Marketplace Action**: [`saxenakapil/setup-doctor-action@v1`](https://github.com/saxenakapil/setup-doctor-action), a composite Action wrapping `doctor --ci`, with CLI flags mapped to Action inputs and `score`/`band` exposed as outputs. See [`docs/guide/ci-integration.md`](docs/guide/ci-integration.md).
 
 ## 0.1.0 (2026-09-29)
 

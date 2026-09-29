@@ -1,6 +1,30 @@
 # CI integration
 
-Four ready-to-use GitHub Actions workflows live in [`docs/examples/`](../examples/), and a real [`.pre-commit-hooks.yaml`](../../.pre-commit-hooks.yaml) manifest lives at the repository root for local pre-commit hooks. All of them just call the same CLI you already use locally; there is nothing CI-specific about `setup-doctor` itself.
+Four ready-to-use GitHub Actions workflows live in [`docs/examples/`](../examples/), a listed [GitHub Marketplace Action](https://github.com/marketplace/actions/setup-doctor) wraps the most common one, and a real [`.pre-commit-hooks.yaml`](../../.pre-commit-hooks.yaml) manifest lives at the repository root for local pre-commit hooks. All of them just call the same CLI you already use locally; there is nothing CI-specific about `setup-doctor` itself.
+
+## The Marketplace Action: the quickest way to gate a pull request
+
+[`saxenakapil/setup-doctor-action`](https://github.com/saxenakapil/setup-doctor-action) is a small composite Action that installs and runs `setup-doctor` for you, with CLI flags mapped to Action inputs and the score/band exposed as Action outputs:
+
+```yaml
+name: setup-doctor gate
+
+on:
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: saxenakapil/setup-doctor-action@v1
+        with:
+          fail-under: 75
+```
+
+This is the same result as the hand-written `ci-gate-workflow.yml` below, just without writing the `actions/setup-node` step yourself. `path`, `agent`, `scope`, `compare` and `min-severity` inputs are also available; see the Action's own [README](https://github.com/saxenakapil/setup-doctor-action#readme) for the full list, including the `score`/`band` outputs other steps in your job can read.
+
+The Action wraps only the single-run "gate" workflow; the score-history, PR-comment and badge workflows below are still hand-written YAML you copy in, not (yet) wrapped by the Action.
 
 ## Gate a pull request on score
 

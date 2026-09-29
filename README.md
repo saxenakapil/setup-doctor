@@ -113,7 +113,7 @@ Every command, with real (not fabricated) output and worked examples:
 - [`docs/guide/doctor.md`](docs/guide/doctor.md): every `doctor` flag, `--format json`'s full shape, exit codes
 - [`docs/guide/wrapped.md`](docs/guide/wrapped.md): periods, privacy flags, the card, `--format json`
 - [`docs/guide/fix-mode.md`](docs/guide/fix-mode.md): a real `--fix` walkthrough, `--dry-run` vs. applying, backups
-- [`docs/guide/ci-integration.md`](docs/guide/ci-integration.md): the example GitHub Actions workflows and the pre-commit hook, explained
+- [`docs/guide/ci-integration.md`](docs/guide/ci-integration.md): the [Marketplace Action](https://github.com/marketplace/actions/setup-doctor), the example GitHub Actions workflows, and the pre-commit hook, explained
 - [`docs/guide/agents.md`](docs/guide/agents.md): what each agent reads, and how a shared file is scored once, not twice
 - [`docs/guide/config.md`](docs/guide/config.md): `.setupdoctorrc` fully worked, including `ignore` and what it does not do yet
 - [`docs/guide/mcp-server.md`](docs/guide/mcp-server.md): using Doctor and Wrapped as read-only MCP tools from Claude Desktop or another MCP client
