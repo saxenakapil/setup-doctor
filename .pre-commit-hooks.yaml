@@ -1,0 +1,7 @@
+- id: setup-doctor
+  name: Setup Doctor
+  description: Score and audit an AI coding agent setup (Claude Code, Codex, Copilot CLI, Cursor).
+  entry: npx --yes setup-doctor@latest doctor --ci
+  language: system
+  pass_filenames: false
+  always_run: true

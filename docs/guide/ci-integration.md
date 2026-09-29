@@ -1,6 +1,6 @@
 # CI integration
 
-Two ready-to-use GitHub Actions workflows live in [`docs/examples/`](../examples/). Both just call the same CLI you already use locally; there is nothing CI-specific about `setup-doctor` itself.
+Two ready-to-use GitHub Actions workflows live in [`docs/examples/`](../examples/), and a real [`.pre-commit-hooks.yaml`](../../.pre-commit-hooks.yaml) manifest lives at the repository root for local pre-commit hooks. All of them just call the same CLI you already use locally; there is nothing CI-specific about `setup-doctor` itself.
 
 ## Gate a pull request on score
 
@@ -99,6 +99,27 @@ This publishes the shields.io [endpoint JSON](https://shields.io/badges/endpoint
 ```
 
 This is exactly the pattern this repository uses for its own badge (see the top of the main [`README.md`](../../README.md)), except this project's badge is a static, manually-regenerated SVG rather than the live endpoint version: the choice between the two is about how often you want your badge to update automatically versus how much CI write-access you want to grant, not a difference in what the tool supports. `permissions: contents: write` is required for the push step; scope it narrowly if your repository's default permissions are broader than this workflow needs.
+
+## Run it as a local pre-commit hook
+
+This repository ships a real [`.pre-commit-hooks.yaml`](../../.pre-commit-hooks.yaml) manifest, so `setup-doctor` works with the [pre-commit](https://pre-commit.com) framework the same way any other pre-commit-compatible tool does. Add it to your own `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/saxenakapil/setup-doctor
+    rev: <a tag or commit SHA>
+    hooks:
+      - id: setup-doctor
+        args: [--fail-under, '75']
+```
+
+Then `pre-commit install` once, and it runs on every `git commit`. The hook itself never bakes in a threshold; `--fail-under` (or any other `doctor` flag) is passed the same way any pre-commit hook takes `args`, so you set it per repo, not per hook definition. Without `args`, the hook still runs and prints the report, it just never fails the commit on its own (the same as running `doctor --ci` with no threshold by hand).
+
+It always runs on the whole project, not per staged file (`pass_filenames: false`, `always_run: true`): `doctor` audits your whole agent setup, not individual files, so passing it a list of staged filenames the way most pre-commit hooks do would be meaningless, and was confirmed to actually break the CLI's own path argument during testing (the first staged filename would be read as the project path to scan) before `pass_filenames: false` was added.
+
+Verified against a real local install of the `pre-commit` framework, not just read against its documentation: a scratch project referencing this repository (via `pre-commit try-repo`, at a real commit) ran the hook end to end, printed a real report, passed with no threshold set, and correctly failed the commit (exit 1) once `args: [--fail-under, '99']` was added and the real score came in under it.
+
+This repository has no tagged releases yet; pin `rev` to a specific commit SHA until one exists, and switch to a tag once this project starts cutting them.
 
 ## A note on `npx setup-doctor@latest`
 
