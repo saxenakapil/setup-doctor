@@ -1,1 +1,1 @@
-{"mcpServers": {"demo": {"command": "this-binary-does-not-exist-anywhere"}}}
+{"mcpServers": {"demo": {"command": "this-binary-does-not-exist-anywhere"}, "demo2": {"command": "also-does-not-exist"}}}
