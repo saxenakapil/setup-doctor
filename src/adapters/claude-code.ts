@@ -1,7 +1,7 @@
 // Claude Code adapter: instructions, skills (including subagents), MCP,
 // plugins and settings. Sessions land in Phase 5. See docs/scope.md section 8.1.
 
-import { basename, delimiter, dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join } from 'node:path';
 import { DISCOVERY_DEPTH_LIMIT } from '../core/defaults.js';
 import { estimateTokens } from '../core/tokens.js';
 import { extractInlineCodePaths, extractRelativeRefs, extractScriptCommands } from '../core/text.js';
@@ -25,24 +25,13 @@ import type {
 } from '../core/types.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { findNestedFiles, isDirectory, isExecutable, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
-import { isCommandOnPath } from './path-check.js';
+import { computeCommandFound, computeSecretLikeEnvKeys } from './mcp-common.js';
+import { toDisplayPath } from './display-path.js';
 import { readAllSessions } from '../wrapped/parse-claude.js';
 import { resolvePeriodBounds } from '../wrapped/period.js';
 
 function includesScope(ctx: DiscoveryContext, wanted: Scope): boolean {
   return ctx.scope === 'all' || ctx.scope === wanted;
-}
-
-function toDisplayPath(absPath: string, ctx: DiscoveryContext): string {
-  const rel = relative(ctx.projectRoot, absPath);
-  if (!rel.startsWith('..') && !rel.startsWith(sep)) {
-    return rel.split(sep).join('/') || '.';
-  }
-  const homeRel = relative(ctx.homeDir, absPath);
-  if (!homeRel.startsWith('..') && !homeRel.startsWith(sep)) {
-    return `~/${homeRel.split(sep).join('/')}`;
-  }
-  return absPath;
 }
 
 // ---- Instructions, including @import resolution ----
@@ -291,31 +280,6 @@ async function readSkills(ctx: DiscoveryContext): Promise<AdapterResult<Skill>> 
 }
 
 // ---- MCP servers ----
-
-function computeSecretLikeEnvKeys(...sources: unknown[]): string[] {
-  const keys: string[] = [];
-  for (const source of sources) {
-    if (!source || typeof source !== 'object') continue;
-    for (const [key, rawValue] of Object.entries(source as Record<string, unknown>)) {
-      if (typeof rawValue !== 'string') continue;
-      const keyLooksSecret = /(key|token|secret|password|passwd|auth)/i.test(key);
-      const isLiteral = !rawValue.startsWith('$');
-      if (keyLooksSecret && isLiteral && rawValue.length >= 8) keys.push(key);
-    }
-  }
-  return keys;
-}
-
-async function computeCommandFound(command: string | undefined, url: string | undefined): Promise<boolean | undefined> {
-  if (!command || url) return undefined;
-  if (isAbsolute(command)) return pathExists(command);
-  return isCommandOnPath(command, {
-    pathEnv: process.env.PATH ?? '',
-    delimiter,
-    pathExt: process.platform === 'win32' ? process.env.PATHEXT : undefined,
-    fileExists: pathExists,
-  });
-}
 
 interface RawMcpServer {
   command?: string;

@@ -1,0 +1,16 @@
+# Structural shape verified against a real ~/.codex/config.toml (see docs/notes.md)
+notify = true
+
+[mcp_servers.node_repl]
+command = "npx"
+args = ["-y", "node-repl-mcp"]
+
+[mcp_servers.node_repl.env]
+NODE_ENV = "production"
+
+[mcp_servers.leaky]
+command = "npx"
+args = ["-y", "leaky-mcp"]
+
+[mcp_servers.leaky.env]
+API_TOKEN = "sk-ant-abcdefghijklmnopqrstuvwx"

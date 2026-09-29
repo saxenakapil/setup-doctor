@@ -1,10 +1,14 @@
-// Adapter registry. Codex and Cursor adapters land in Phase 6.
+// Adapter registry.
 
 import type { Adapter, Agent } from '../core/types.js';
 import { claudeCodeAdapter } from './claude-code.js';
+import { codexAdapter } from './codex.js';
+import { cursorAdapter } from './cursor.js';
 
 const ADAPTERS: Partial<Record<Agent, Adapter>> = {
   claude: claudeCodeAdapter,
+  codex: codexAdapter,
+  cursor: cursorAdapter,
 };
 
 export function getAdapter(agent: Agent): Adapter | undefined {
