@@ -88,6 +88,19 @@ Run `npx setup-doctor --help` for the full list.
 - **Never charge for anything.** `setup-doctor` is free and MIT-licensed, and will stay that way; there is no paid tier this project is funneling you toward.
 - **Never add a runtime dependency casually.** The budget is 0 to 3, forever, and every one is reviewed on its own merits (see [`docs/notes.md`](docs/notes.md) for the audit trail on the one native dependency this project has, `@resvg/resvg-js`, which is optional and only used for PNG export).
 
+## Guide
+
+Every command, with real (not fabricated) output and worked examples:
+
+- [`docs/guide/getting-started.md`](docs/guide/getting-started.md): your first run, reading the score and a finding
+- [`docs/guide/doctor.md`](docs/guide/doctor.md): every `doctor` flag, `--format json`'s full shape, exit codes
+- [`docs/guide/wrapped.md`](docs/guide/wrapped.md): periods, privacy flags, the card, `--format json`
+- [`docs/guide/fix-mode.md`](docs/guide/fix-mode.md): a real `--fix` walkthrough, `--dry-run` vs. applying, backups
+- [`docs/guide/ci-integration.md`](docs/guide/ci-integration.md): the two example workflows, explained
+- [`docs/guide/agents.md`](docs/guide/agents.md): what each agent reads, and how a shared file is scored once, not twice
+- [`docs/guide/config.md`](docs/guide/config.md): `.setupdoctorrc` fully worked, including what it does not do yet
+- [`docs/guide/troubleshooting.md`](docs/guide/troubleshooting.md): "nothing to check," a wrong-looking score, and more
+
 ## Docs
 
 - [`docs/scope.md`](docs/scope.md): the frozen v1 scope, data model, outputs and build plan
