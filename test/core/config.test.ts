@@ -34,6 +34,20 @@ describe('loadConfigFile', () => {
     expect(result.warnings.length).toBe(1);
   });
 
+  it('warns and drops an unrecognized value for a known key, keeping the rest of the file', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), JSON.stringify({ theme: 'neon', disabledRules: ['INS-04'] }));
+    const result = await loadConfigFile(dir);
+    expect(result.warnings).toEqual([`Invalid value "neon" for config key "theme" in ${join(dir, '.setupdoctorrc')} is ignored.`]);
+    expect(result.raw).toEqual({ disabledRules: ['INS-04'] });
+  });
+
+  it('accepts "auto" as a valid agent value', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), JSON.stringify({ agent: 'auto' }));
+    const result = await loadConfigFile(dir);
+    expect(result.warnings).toEqual([]);
+    expect(result.raw).toMatchObject({ agent: 'auto' });
+  });
+
   it('throws ConfigParseError on invalid JSON', async () => {
     writeFileSync(join(dir, '.setupdoctorrc'), '{ not json');
     await expect(loadConfigFile(dir)).rejects.toThrow(ConfigParseError);

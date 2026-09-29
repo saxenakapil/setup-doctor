@@ -97,6 +97,18 @@ Multiple rule IDs, comma-separated, are also allowed.
 
 This suppresses the named rule(s) for findings in that specific file only, the same way `disabledRules` does project-wide: excluded from the score, still counted and listed separately.
 
-## What `.setupdoctorrc` does not yet do
+## `agent`, `scope`, `theme` and `minSeverity` as flag defaults
 
-Honestly, not everything in it is wired up yet. `agent`, `scope`, `theme` and `minSeverity` are accepted in the file (an unrecognized value still produces a warning, not silence) but are **not** currently used as defaults for the equivalent CLI flags: every command still falls back to its own hardcoded default (for example, `wrapped --agent` always defaults to `claude` regardless of what the file says) rather than reading the file's value when the flag is omitted. `disabledRules` and `thresholds`, the two fields that change what is actually found and scored, work as documented above. This gap is tracked in [`docs/notes.md`](../notes.md)'s backlog, not silently left undocumented; if you rely on any of those four fields today, pass the equivalent flag explicitly instead.
+These four fields now work as real defaults for the equivalent CLI flag, in the precedence this page already describes (flag, then `.setupdoctorrc`, then the built-in default):
+
+```bash
+$ cat .setupdoctorrc
+{"agent": "claude", "theme": "technical", "minSeverity": "high"}
+$ npx setup-doctor --scope project --format json
+```
+
+Runs exactly as if you had passed `--agent claude --theme technical --min-severity high`, without typing any of them: only `claude`'s own findings are checked, only `high`/`critical` findings are shown, and JSON/HTML/badge output uses the technical theme. An explicit flag still always wins over the file.
+
+What each one applies to, matching the flags themselves: `agent` and `theme` apply to `doctor`, `badge` and `wrapped`; `scope` applies to `doctor` and `badge` only (`wrapped` has no `--scope` flag); `minSeverity` applies to `doctor` only. `wrapped` now also reads `.setupdoctorrc` (from the current directory, or `--config <path>`), which it did not do at all before this was wired up. `agent: "auto"` (the config file's spelling for "detect every agent present") is treated the same as `doctor`/`badge`'s own `--agent all` default; for `wrapped`, which always reads exactly one agent's session log, `"auto"` has no equivalent meaning and is ignored in favor of `wrapped`'s own `claude` default.
+
+An unrecognized value for one of these four keys (for example `"theme": "neon"`) produces a warning identical in shape to an unknown key's warning, and that one field is dropped back to its built-in default rather than failing the run; the rest of the file still applies. `disabledRules` and `thresholds` are unaffected by any of this, they already worked as documented above.

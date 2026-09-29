@@ -277,6 +277,69 @@ describe('cli doctor: .setupdoctorrc (regression: was loaded and validated only 
       rmSync(outWithoutRc, { recursive: true, force: true });
     }
   });
+
+  it('.setupdoctorrc\'s minSeverity is used as the --min-severity default when the flag is omitted', async () => {
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ minSeverity: 'high' }));
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.findings).toEqual([]); // FRS-01/INS-05 are both low, filtered out by the config default
+  });
+
+  it('an explicit --min-severity flag still wins over .setupdoctorrc', async () => {
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ minSeverity: 'high' }));
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--format', 'json', '--min-severity', 'low'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.findings.length).toBeGreaterThan(0);
+  });
+
+  it('.setupdoctorrc\'s theme is used as the --theme default (visible in JSON output\'s own theme field)', async () => {
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ theme: 'technical' }));
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.theme).toBe('technical');
+  });
+
+  it('.setupdoctorrc\'s agent is used as the --agent default, narrowing detection instead of auto-detecting every agent present', async () => {
+    writeFileSync(join(project, '.cursorrules'), 'Some cursor rule.\n');
+    const c = capture();
+    const code = await main([project, '--scope', 'project', '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const withoutConfig = JSON.parse(c.out.join('\n'));
+    expect(withoutConfig.agentsDetected.sort()).toEqual(['claude', 'cursor']);
+
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ agent: 'claude' }));
+    const c2 = capture();
+    const code2 = await main([project, '--scope', 'project', '--format', 'json'], c2.io, homeDir);
+    expect(code2).toBe(0);
+    const withConfig = JSON.parse(c2.out.join('\n'));
+    expect(withConfig.agentsDetected).toEqual(['claude']);
+  });
+
+  it('an explicit --agent flag still wins over .setupdoctorrc', async () => {
+    writeFileSync(join(project, '.cursorrules'), 'Some cursor rule.\n');
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ agent: 'claude' }));
+    const c = capture();
+    const code = await main([project, '--agent', 'cursor', '--scope', 'project', '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.agentsDetected).toEqual(['cursor']);
+  });
+
+  it('an invalid .setupdoctorrc value for a known key warns and falls back to the built-in default rather than failing the run', async () => {
+    writeFileSync(join(project, '.setupdoctorrc'), JSON.stringify({ theme: 'neon' }));
+    const c = capture();
+    const code = await main([project, '--agent', 'claude', '--scope', 'project', '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.theme).toBe('playful');
+    expect(report.warnings.some((w: string) => w.includes('Invalid value') && w.includes('theme'))).toBe(true);
+  });
 });
 
 describe('cli badge (deterministic fixture home and project)', () => {
@@ -363,6 +426,34 @@ describe('cli wrapped (deterministic fixture home)', () => {
     } else {
       expect(text).toContain('Node 22.5');
     }
+  });
+
+  it('.setupdoctorrc\'s agent (via --config) is used as the --agent default for wrapped too, not just doctor/badge', async () => {
+    const codexHome = join(__dirname, 'fixtures', 'wrapped-codex', 'home');
+    const configFile = join(outDir, 'wrapped-config.json');
+    writeFileSync(configFile, JSON.stringify({ agent: 'codex' }));
+    const c = capture();
+    const code = await main(['wrapped', '--config', configFile, '--period', 'all', '--tz', 'UTC', '--out', outDir, '--yes'], c.io, codexHome);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('Sessions 2');
+  });
+
+  it('an explicit --agent flag still wins over .setupdoctorrc for wrapped', async () => {
+    const configFile = join(outDir, 'wrapped-config.json');
+    writeFileSync(configFile, JSON.stringify({ agent: 'codex' }));
+    const c = capture();
+    const code = await main(['wrapped', '--config', configFile, '--agent', 'copilot', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('not supported for copilot yet');
+  });
+
+  it('exits 2 with a clear message when wrapped\'s --config file contains invalid JSON', async () => {
+    const configFile = join(outDir, 'bad-config.json');
+    writeFileSync(configFile, '{ not valid json');
+    const c = capture();
+    const code = await main(['wrapped', '--config', configFile, '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(2);
+    expect(c.err.join('\n')).toContain('Invalid JSON');
   });
 
   it('codex wrapped against a real fixture home: real numbers, the card names Codex not Claude Code, and writes card files', async () => {

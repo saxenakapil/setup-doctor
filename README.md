@@ -61,7 +61,7 @@ Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/
 | `--no-cost` | wrapped | Remove cost figures |
 | `--tz <IANA zone>` | wrapped | Timezone for date boundaries (default: local) |
 | `--out <path>` / `--yes` | doctor, badge, wrapped | Output folder / overwrite existing files without asking |
-| `--config <path>` | doctor, badge, rules | Configuration file (default: `<path>/.setupdoctorrc`, see [`docs/guide/config.md`](docs/guide/config.md)) |
+| `--config <path>` | doctor, badge, rules, wrapped | Configuration file (default: `<path>/.setupdoctorrc`, see [`docs/guide/config.md`](docs/guide/config.md)); its `agent`/`scope`/`theme`/`minSeverity` fields act as real defaults for the equivalent flag |
 | `--no-color` | doctor, wrapped | Disable ANSI color (also off for `--ci`, `NO_COLOR`, or non-TTY output) |
 | `--fix` / `--dry-run` / `--allow-dirty` | doctor | Propose (and optionally apply) safe, mechanical fixes; see [`docs/guide/fix-mode.md`](docs/guide/fix-mode.md) |
 

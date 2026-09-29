@@ -3,7 +3,7 @@ import { ConfigParseError, loadConfigFile, mergeConfig } from './core/config.js'
 import { makeDiscoveryContext, runDoctor } from './core/runner.js';
 import { writeOutputFile } from './core/output.js';
 import { applyFixes, backupFiles, planFixes } from './core/fix.js';
-import type { Agent, Scope, Severity } from './core/types.js';
+import type { Agent, Scope, SetupDoctorConfig, Severity } from './core/types.js';
 import { ALL_RULES, getRule } from './rules/index.js';
 import { renderTerminalReport } from './render/terminal.js';
 import { shouldUseColor } from './render/ansi.js';
@@ -62,7 +62,7 @@ Options:
   --min-severity  low | medium | high | critical (doctor; hides findings, score is unaffected)
   --out <path> Output folder (doctor --format html/json with --out, badge)
   --yes        Overwrite existing output files without asking
-  --config <path>  Configuration file (default: <path>/.setupdoctorrc) (doctor, badge, rules)
+  --config <path>  Configuration file (default: <path>/.setupdoctorrc) (doctor, badge, rules, wrapped)
   --endpoint   Also write the shields.io endpoint JSON (badge)
   --no-color   Disable ANSI color (also off for --ci, NO_COLOR, or a non-TTY output)
   --ci         No prompts, stable output (doctor)
@@ -114,33 +114,60 @@ interface CommonDoctorFlags {
   yes: boolean;
 }
 
+/**
+ * Loads `.setupdoctorrc` (or `--config <path>`) purely to read its
+ * agent/scope/theme/minSeverity fields as CLI flag defaults (docs/scope.md
+ * section 7's documented precedence: flag, then config file, then the
+ * command's own built-in default). Value-level validation and the "unknown
+ * key" warning both already happen inside `loadConfigFile` itself; this
+ * silently ignores an invalid/unparseable file rather than surfacing a
+ * second copy of the same warnings `runDoctor`'s own internal config load
+ * already puts in `report.warnings` for doctor/badge. `wrapped` has no
+ * config-warnings surface at all today (see docs/notes.md), so this is the
+ * only place its own config defaults get validated.
+ */
+async function loadConfigDefaults(projectRootPath: string | undefined, configPath: string | undefined): Promise<Partial<SetupDoctorConfig>> {
+  const { raw } = await loadConfigFile(resolve(projectRootPath ?? '.'), configPath);
+  return raw ?? {};
+}
+
+/** Config's `"auto"` agent value means the same thing doctor/badge's own "all" default means: auto-detect. Wrapped has no such value; see its own call site. */
+function agentDefaultForDoctorOrBadge(configAgent: unknown): string | undefined {
+  if (configAgent === 'auto') return 'all';
+  return typeof configAgent === 'string' ? configAgent : undefined;
+}
+
 /** Parses and validates flags shared by `doctor` and `badge`. Returns an exit code on error. */
-function parseCommonFlags(flags: Record<string, string | boolean>, io: Io): CommonDoctorFlags | number {
+function parseCommonFlags(
+  flags: Record<string, string | boolean>,
+  io: Io,
+  configDefaults: Partial<SetupDoctorConfig> = {},
+): CommonDoctorFlags | number {
   const format = typeof flags.format === 'string' ? flags.format : 'terminal';
   if (!FORMATS.has(format)) {
     io.err(`Unknown --format value: ${format}\nValid values: ${[...FORMATS].join(', ')}`);
     return 2;
   }
 
-  const agentFlag = typeof flags.agent === 'string' ? flags.agent : 'all';
+  const agentFlag = typeof flags.agent === 'string' ? flags.agent : (agentDefaultForDoctorOrBadge(configDefaults.agent) ?? 'all');
   if (!AGENT_VALUES.has(agentFlag)) {
     io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
     return 2;
   }
 
-  const scopeFlag = typeof flags.scope === 'string' ? flags.scope : 'all';
+  const scopeFlag = typeof flags.scope === 'string' ? flags.scope : (configDefaults.scope ?? 'all');
   if (!SCOPE_VALUES.has(scopeFlag)) {
     io.err(`Unknown --scope value: ${scopeFlag}\nValid values: ${[...SCOPE_VALUES].join(', ')}`);
     return 2;
   }
 
-  const themeRaw = typeof flags.theme === 'string' ? flags.theme : 'playful';
+  const themeRaw = typeof flags.theme === 'string' ? flags.theme : (configDefaults.theme ?? 'playful');
   if (!isThemeName(themeRaw)) {
     io.err(`Unknown --theme value: ${themeRaw}\nValid values: ${THEME_NAMES.join(', ')}`);
     return 2;
   }
 
-  const minSeverityRaw = typeof flags['min-severity'] === 'string' ? flags['min-severity'] : 'low';
+  const minSeverityRaw = typeof flags['min-severity'] === 'string' ? flags['min-severity'] : (configDefaults.minSeverity ?? 'low');
   if (!MIN_SEVERITY_VALUES.has(minSeverityRaw)) {
     io.err(`Unknown --min-severity value: ${minSeverityRaw}\nValid values: ${[...MIN_SEVERITY_VALUES].join(', ')}`);
     return 2;
@@ -239,24 +266,25 @@ async function runFixFlow(
 
 async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
   const { flags, positionals } = parseArgsAfterCommand(rest);
-  const parsed = parseCommonFlags(flags, io);
-  if (typeof parsed === 'number') return parsed;
-  const { format, agentFlag, scopeFlag, themeFlag, minSeverity, outDir, yes } = parsed;
-
-  const ci = flags.ci === true;
-  let failUnder: number | undefined;
-  if (flags['fail-under'] !== undefined) {
-    const parsedFailUnder = Number(flags['fail-under']);
-    if (!Number.isFinite(parsedFailUnder)) {
-      io.err(`Invalid --fail-under value: ${String(flags['fail-under'])}`);
-      return 2;
-    }
-    failUnder = parsedFailUnder;
-  }
-
   const configPath = typeof flags.config === 'string' ? flags.config : undefined;
 
   try {
+    const configDefaults = await loadConfigDefaults(positionals[0], configPath);
+    const parsed = parseCommonFlags(flags, io, configDefaults);
+    if (typeof parsed === 'number') return parsed;
+    const { format, agentFlag, scopeFlag, themeFlag, minSeverity, outDir, yes } = parsed;
+
+    const ci = flags.ci === true;
+    let failUnder: number | undefined;
+    if (flags['fail-under'] !== undefined) {
+      const parsedFailUnder = Number(flags['fail-under']);
+      if (!Number.isFinite(parsedFailUnder)) {
+        io.err(`Invalid --fail-under value: ${String(flags['fail-under'])}`);
+        return 2;
+      }
+      failUnder = parsedFailUnder;
+    }
+
     const report = await runDoctor({
       path: positionals[0],
       agent: agentFlag as Agent | 'all',
@@ -358,13 +386,15 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
 
 async function runBadgeCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
   const { flags, positionals } = parseArgsAfterCommand(rest);
-  const parsed = parseCommonFlags(flags, io);
-  if (typeof parsed === 'number') return parsed;
-  const { agentFlag, scopeFlag, themeFlag, outDir, yes } = parsed;
-  const endpoint = flags.endpoint === true;
   const configPath = typeof flags.config === 'string' ? flags.config : undefined;
 
   try {
+    const configDefaults = await loadConfigDefaults(positionals[0], configPath);
+    const parsed = parseCommonFlags(flags, io, configDefaults);
+    if (typeof parsed === 'number') return parsed;
+    const { agentFlag, scopeFlag, themeFlag, outDir, yes } = parsed;
+    const endpoint = flags.endpoint === true;
+
     const report = await runDoctor({
       path: positionals[0],
       agent: agentFlag as Agent | 'all',
@@ -418,41 +448,49 @@ async function runBadgeCommand(rest: string[], io: Io, homeDir?: string): Promis
 
 async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
   const { flags } = parseArgsAfterCommand(rest);
-
-  const format = typeof flags.format === 'string' ? flags.format : 'terminal';
-  if (format !== 'terminal' && format !== 'json') {
-    io.err(`Unknown --format value: ${format}\nValid values: terminal, json`);
-    return 2;
-  }
-  const agentFlag = typeof flags.agent === 'string' ? flags.agent : 'claude';
-  if (!AGENT_VALUES.has(agentFlag)) {
-    io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
-    return 2;
-  }
-  if (agentFlag === 'copilot') {
-    io.out(`Wrapped is not supported for ${agentFlag} yet`);
-    return 0;
-  }
-  if (agentFlag === 'cursor' && !(await loadSqlite())) {
-    io.out(
-      `Wrapped for cursor needs Node 22.5 or later (it reads Cursor's local database via the built-in node:sqlite module).\nYour Node version: ${process.version}`,
-    );
-    return 0;
-  }
-  const themeRaw = typeof flags.theme === 'string' ? flags.theme : 'playful';
-  if (!isThemeName(themeRaw)) {
-    io.err(`Unknown --theme value: ${themeRaw}\nValid values: ${THEME_NAMES.join(', ')}`);
-    return 2;
-  }
-  const outDir = typeof flags.out === 'string' ? resolve(flags.out) : resolve('.');
-  const yes = flags.yes === true;
-  const anonymize = flags.anonymize === true;
-  const noCost = flags['no-cost'] === true;
-  const showProjects = flags['show-projects'] === true;
-  const periodFlag = typeof flags.period === 'string' ? flags.period : '30d';
-  const tz = typeof flags.tz === 'string' ? flags.tz : undefined;
+  const configPath = typeof flags.config === 'string' ? flags.config : undefined;
 
   try {
+    const configDefaults = await loadConfigDefaults(undefined, configPath);
+
+    const format = typeof flags.format === 'string' ? flags.format : 'terminal';
+    if (format !== 'terminal' && format !== 'json') {
+      io.err(`Unknown --format value: ${format}\nValid values: terminal, json`);
+      return 2;
+    }
+    // Wrapped reads exactly one agent's session log, so config's "auto" (a
+    // multi-agent doctor/badge concept) has no meaning here and is ignored
+    // in favor of wrapped's own "claude" default, same as an agent value
+    // the config file never set at all.
+    const configAgent = configDefaults.agent !== 'auto' ? configDefaults.agent : undefined;
+    const agentFlag = typeof flags.agent === 'string' ? flags.agent : (configAgent ?? 'claude');
+    if (!AGENT_VALUES.has(agentFlag)) {
+      io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
+      return 2;
+    }
+    if (agentFlag === 'copilot') {
+      io.out(`Wrapped is not supported for ${agentFlag} yet`);
+      return 0;
+    }
+    if (agentFlag === 'cursor' && !(await loadSqlite())) {
+      io.out(
+        `Wrapped for cursor needs Node 22.5 or later (it reads Cursor's local database via the built-in node:sqlite module).\nYour Node version: ${process.version}`,
+      );
+      return 0;
+    }
+    const themeRaw = typeof flags.theme === 'string' ? flags.theme : (configDefaults.theme ?? 'playful');
+    if (!isThemeName(themeRaw)) {
+      io.err(`Unknown --theme value: ${themeRaw}\nValid values: ${THEME_NAMES.join(', ')}`);
+      return 2;
+    }
+    const outDir = typeof flags.out === 'string' ? resolve(flags.out) : resolve('.');
+    const yes = flags.yes === true;
+    const anonymize = flags.anonymize === true;
+    const noCost = flags['no-cost'] === true;
+    const showProjects = flags['show-projects'] === true;
+    const periodFlag = typeof flags.period === 'string' ? flags.period : '30d';
+    const tz = typeof flags.tz === 'string' ? flags.tz : undefined;
+
     const result = await runWrapped({ agent: agentFlag as Agent, homeDir, periodFlag, tz });
     if (!result.ok) {
       io.err(
@@ -548,6 +586,10 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
 
     return 0;
   } catch (err) {
+    if (err instanceof ConfigParseError) {
+      io.err(err.message);
+      return 2;
+    }
     io.err(`setup-doctor wrapped: internal error: ${(err as Error).message}\nPlease file an issue.`);
     return 4;
   }

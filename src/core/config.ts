@@ -8,6 +8,19 @@ import type { SetupDoctorConfig } from './types.js';
 
 const KNOWN_KEYS = new Set(['agent', 'scope', 'theme', 'minSeverity', 'disabledRules', 'thresholds']);
 
+// Value-level validation for the four flag-default keys. Mirrors each key's
+// real valid values (docs/scope.md section 7's example includes "auto" for
+// agent, which core/types.ts's SetupDoctorConfig also allows). Kept as local
+// literal sets rather than importing from render/themes or src/cli.ts,
+// since core/ must not depend on render/ or cli.ts (see CLAUDE.md's layered
+// architecture: adapters -> core -> rules -> render -> cli).
+const VALID_VALUES: Record<string, Set<string>> = {
+  agent: new Set(['claude', 'codex', 'cursor', 'copilot', 'auto']),
+  scope: new Set(['project', 'global', 'all']),
+  theme: new Set(['playful', 'technical', 'mix']),
+  minSeverity: new Set(['low', 'medium', 'high', 'critical']),
+};
+
 export class ConfigParseError extends Error {
   constructor(message: string) {
     super(message);
@@ -43,7 +56,15 @@ export async function loadConfigFile(projectRoot: string, configPath?: string): 
   const warnings: string[] = [];
   const raw = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
   for (const key of Object.keys(raw)) {
-    if (!KNOWN_KEYS.has(key)) warnings.push(`Unknown config key "${key}" in ${path} is ignored.`);
+    if (!KNOWN_KEYS.has(key)) {
+      warnings.push(`Unknown config key "${key}" in ${path} is ignored.`);
+      continue;
+    }
+    const validSet = VALID_VALUES[key];
+    if (validSet && !validSet.has(String(raw[key]))) {
+      warnings.push(`Invalid value ${JSON.stringify(raw[key])} for config key "${key}" in ${path} is ignored.`);
+      delete raw[key];
+    }
   }
   return { raw: raw as Partial<SetupDoctorConfig>, warnings };
 }
