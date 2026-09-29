@@ -2,6 +2,7 @@ import { ConfigParseError, loadConfigFile, mergeConfig } from './core/config.js'
 import { runDoctor } from './core/runner.js';
 import type { Agent, Scope } from './core/types.js';
 import { ALL_RULES, getRule } from './rules/index.js';
+import { renderTerminalReport } from './render/terminal.js';
 import { RULES_VERSION, VERSION } from './version.js';
 
 export interface Io {
@@ -32,13 +33,15 @@ Usage:
 Options:
   --help       Show this help
   --version    Show the version
-  --format     terminal | json | html (doctor: only json is implemented so far)
+  --format     terminal | json | html (doctor: html not implemented yet)
   --agent      claude | codex | cursor | all
   --scope      project | global | all
+  --ci         No prompts, stable output (doctor)
+  --fail-under <n>   With --ci, exit 1 if the score is below n (doctor)
 
-Status: doctor runs discovery and the instruction/skill rules, and prints
---format json. Scoring, the terminal/html report, wrapped and badge are
-still in progress. See docs/scope.md for the full plan.`;
+Status: doctor runs discovery, all 26 rules and scoring, with terminal and
+json output. The html report, wrapped and badge are still in progress.
+See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
   const flags: Record<string, string | boolean> = {};
@@ -86,6 +89,17 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
     return 2;
   }
 
+  const ci = flags.ci === true;
+  let failUnder: number | undefined;
+  if (flags['fail-under'] !== undefined) {
+    const parsed = Number(flags['fail-under']);
+    if (!Number.isFinite(parsed)) {
+      io.err(`Invalid --fail-under value: ${String(flags['fail-under'])}`);
+      return 2;
+    }
+    failUnder = parsed;
+  }
+
   try {
     const report = await runDoctor({
       path: positionals[0],
@@ -107,7 +121,11 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
             toolVersion: report.toolVersion,
             rulesVersion: report.rulesVersion,
             agentsDetected: report.agentsDetected,
-            score: null,
+            score: report.score,
+            band: report.band,
+            capped: report.capped,
+            categories: report.categories,
+            overheadTokens: report.overheadTokens,
             findings: report.findings,
             suppressed: report.suppressed,
             skipped: report.skipped,
@@ -117,11 +135,29 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
           2,
         ),
       );
-      return 0;
+    } else if (format === 'terminal') {
+      io.out(
+        renderTerminalReport({
+          score: report.score,
+          band: report.band,
+          capped: report.capped,
+          categories: report.categories,
+          rulesVersion: report.rulesVersion,
+          overheadTokens: report.overheadTokens,
+          findings: report.findings,
+          suppressedCount: report.suppressed.length,
+          skipped: report.skipped,
+        }),
+      );
+    } else {
+      io.err('setup-doctor doctor: --format html is not implemented yet.');
+      return 4;
     }
 
-    io.err('setup-doctor doctor: terminal and html report rendering are not implemented yet. Use --format json.');
-    return 4;
+    if (ci && failUnder !== undefined && report.score !== null && report.score < failUnder) {
+      return 1;
+    }
+    return 0;
   } catch (err) {
     io.err(`setup-doctor doctor: internal error: ${(err as Error).message}\nPlease file an issue.`);
     return 4;

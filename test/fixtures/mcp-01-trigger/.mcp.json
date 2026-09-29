@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "demo": { "command": "not-a-real-binary-xyz-123" }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "linear": { "command": "linear-mcp-server" }
+  }
+}

@@ -267,8 +267,9 @@ interface Skill extends SourceRef {
 interface McpServer {
   agent: Agent; scope: Scope; sourcePath: string; name: string;
   command?: string; url?: string; args: string[];
-  secretLikeEnvKeys: string[];   // computed in the adapter; env VALUES are never kept
+  secretLikeEnvKeys: string[];   // computed in the adapter; env AND header VALUES are never kept
   disabled: boolean;
+  commandFound?: boolean;        // MCP-01b; PATH lookup done by the adapter (src/adapters/path-check.ts), undefined when not applicable
 }
 
 interface PluginInfo {
@@ -277,7 +278,12 @@ interface PluginInfo {
   skillNames: string[]; commandNames: string[]; enabled: boolean;
 }
 
-interface HookDef { agent: Agent; scope: Scope; sourcePath: string; event: string; command: string }
+// Result of resolving a hook's script path against disk (SET-02). Present only
+// when the hook's first token looked like a path. executable is always true
+// on Windows, which has no exec bit.
+interface HookScriptCheck { resolvedPath: string; exists: boolean; executable: boolean }
+
+interface HookDef { agent: Agent; scope: Scope; sourcePath: string; event: string; command: string; scriptCheck?: HookScriptCheck }
 interface PermissionRule { agent: Agent; scope: Scope; sourcePath: string; kind: 'allow' | 'deny' | 'ask'; rule: string }
 
 interface SessionRecord {
@@ -287,11 +293,16 @@ interface SessionRecord {
   tools: string[];               // tool names called in this record
 }
 
+// A config file that exists but failed to parse (MCP-01a), kept as data
+// separate from the free-text warnings list.
+interface ConfigError { agent: Agent; scope: Scope; sourcePath: string; message: string }
+
 interface AdapterResult<T> {
   items: T[];
   skipped: { path: string; reason: string }[];
   warnings: string[];
   unsupported?: boolean;         // the agent does not provide this input
+  configErrors?: ConfigError[];  // MCP-01a; only readMcp populates this today
 }
 
 interface Finding {

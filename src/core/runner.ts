@@ -8,6 +8,7 @@ import { listDirSafe, pathExists } from '../adapters/fs-utils.js';
 import { ALL_RULES } from '../rules/index.js';
 import { parseInlineSuppressions, applySuppressions } from './suppress.js';
 import { mergeConfig } from './config.js';
+import { computeOverheadTokens, scoreFindings, type ScoreResult } from './scoring.js';
 import type { SetupDoctorConfig } from './types.js';
 import { RULES_VERSION, VERSION } from '../version.js';
 import type { Agent, Category, DiscoveryContext, Finding, NormalizedModel, Scope, Severity } from './types.js';
@@ -65,6 +66,7 @@ export function emptyModel(): NormalizedModel {
     hooks: [],
     permissions: [],
     buildManifests: [],
+    mcpConfigErrors: [],
     skipped: [],
     warnings: [],
   };
@@ -91,6 +93,7 @@ export async function buildModel(ctx: DiscoveryContext, agents: Agent[]): Promis
     model.skills.push(...skills.items);
     model.mcpServers.push(...mcp.items);
     model.plugins.push(...plugins.items);
+    model.mcpConfigErrors.push(...(mcp.configErrors ?? []));
     for (const item of settings.items) {
       if ('event' in item) model.hooks.push(item);
       else model.permissions.push(item);
@@ -159,11 +162,16 @@ export interface DoctorReport {
   skipped: NormalizedModel['skipped'];
   warnings: string[];
   model: NormalizedModel;
+  score: ScoreResult['score'];
+  band: ScoreResult['band'];
+  capped: boolean;
+  categories: ScoreResult['categories'];
+  overheadTokens: number;
 }
 
 /**
- * Runs discovery, builds the normalized model, and runs rules and
- * suppression. Scoring is added in Phase 3.
+ * Runs discovery, builds the normalized model, runs rules and suppression,
+ * and scores the result (docs/scope.md section 10.4).
  */
 export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
   const ctx = makeDiscoveryContext(options);
@@ -171,6 +179,7 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
   const model = await buildModel(ctx, agents);
   const config = mergeConfig(null, options.config ?? {});
   const { kept, suppressed } = runRules(model, config);
+  const { score, band, capped, categories } = scoreFindings(kept, model);
   return {
     toolVersion: VERSION,
     rulesVersion: RULES_VERSION,
@@ -180,5 +189,10 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
     skipped: model.skipped,
     warnings: model.warnings,
     model,
+    score,
+    band,
+    capped,
+    categories,
+    overheadTokens: computeOverheadTokens(model),
   };
 }

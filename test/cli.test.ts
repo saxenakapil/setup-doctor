@@ -79,7 +79,7 @@ describe('cli doctor (deterministic fixture home and project)', () => {
     expect(c.out.join('\n')).toContain('Nothing to check');
   });
 
-  it('prints a JSON report skeleton with no findings once an agent is detected', async () => {
+  it('prints a scored JSON report with no findings for a clean project', async () => {
     writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
     const c = capture();
     const code = await main([emptyProject, '--format', 'json'], c.io, homeDir);
@@ -88,9 +88,33 @@ describe('cli doctor (deterministic fixture home and project)', () => {
     expect(report.schemaVersion).toBe(1);
     expect(report.toolVersion).toBe(VERSION);
     expect(report.agentsDetected).toEqual(['claude']);
+    expect(report.score).toBe(100);
+    expect(report.band).toBe('Excellent');
     expect(report.findings).toEqual([]);
     expect(report.suppressed).toEqual([]);
     expect(Array.isArray(report.skipped)).toBe(true);
     expect(Array.isArray(report.warnings)).toBe(true);
+  });
+
+  it('prints a terminal report by default', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const c = capture();
+    const code = await main([emptyProject], c.io, homeDir);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('Setup Doctor  score 100/100  (Excellent)');
+  });
+
+  it('--ci --fail-under exits 1 when the score is below the threshold', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'API_KEY=aZ9kQ2mP7xR4vL1wT6bN3jH8\n');
+    const c = capture();
+    const code = await main([emptyProject, '--ci', '--fail-under', '90'], c.io, homeDir);
+    expect(code).toBe(1);
+  });
+
+  it('--ci --fail-under exits 0 when the score meets the threshold', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const c = capture();
+    const code = await main([emptyProject, '--ci', '--fail-under', '90'], c.io, homeDir);
+    expect(code).toBe(0);
   });
 });

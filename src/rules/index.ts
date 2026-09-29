@@ -1,5 +1,4 @@
 // Rule registry. Adding a rule touches one new file plus one line here.
-// SKL-06, MCP-01..05, PLG-01..03, SET-01/02, FRS-01/02 land in Phase 3 and 5.
 
 import { ins01 } from './ins-01.js';
 import { ins02 } from './ins-02.js';
@@ -14,6 +13,19 @@ import { skl02 } from './skl-02.js';
 import { skl03 } from './skl-03.js';
 import { skl04 } from './skl-04.js';
 import { skl05 } from './skl-05.js';
+import { skl06 } from './skl-06.js';
+import { mcp01 } from './mcp-01.js';
+import { mcp02 } from './mcp-02.js';
+import { mcp03 } from './mcp-03.js';
+import { mcp04 } from './mcp-04.js';
+import { mcp05 } from './mcp-05.js';
+import { plg01 } from './plg-01.js';
+import { plg02 } from './plg-02.js';
+import { plg03 } from './plg-03.js';
+import { set01 } from './set-01.js';
+import { set02 } from './set-02.js';
+import { frs01 } from './frs-01.js';
+import { frs02 } from './frs-02.js';
 import type { Rule } from '../core/types.js';
 
 export const ALL_RULES: Rule[] = [
@@ -30,6 +42,19 @@ export const ALL_RULES: Rule[] = [
   skl03,
   skl04,
   skl05,
+  skl06,
+  mcp01,
+  mcp02,
+  mcp03,
+  mcp04,
+  mcp05,
+  plg01,
+  plg02,
+  plg03,
+  set01,
+  set02,
+  frs01,
+  frs02,
 ];
 
 export function getRule(id: string): Rule | undefined {

@@ -54,6 +54,17 @@ export async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
+/** Posix executable bit. Always true on Windows, which has no such bit. */
+export async function isExecutable(path: string): Promise<boolean> {
+  if (process.platform === 'win32') return true;
+  try {
+    const st = await stat(path);
+    return (st.mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function listDirSafe(path: string): Promise<string[]> {
   try {
     return await readdir(path);

@@ -1,13 +1,14 @@
 // Claude Code adapter: instructions, skills (including subagents), MCP,
 // plugins and settings. Sessions land in Phase 5. See docs/scope.md section 8.1.
 
-import { basename, dirname, join, relative, sep } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { DISCOVERY_DEPTH_LIMIT } from '../core/defaults.js';
 import { estimateTokens } from '../core/tokens.js';
 import { extractInlineCodePaths, extractRelativeRefs, extractScriptCommands } from '../core/text.js';
 import type {
   Adapter,
   AdapterResult,
+  ConfigError,
   DiscoveryContext,
   HookDef,
   InstructionFile,
@@ -23,7 +24,8 @@ import type {
   StaleReference,
 } from '../core/types.js';
 import { parseFrontmatter } from './frontmatter.js';
-import { findNestedFiles, isDirectory, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
+import { findNestedFiles, isDirectory, isExecutable, listDirSafe, pathExists, readTextFileSafe } from './fs-utils.js';
+import { isCommandOnPath } from './path-check.js';
 
 function includesScope(ctx: DiscoveryContext, wanted: Scope): boolean {
   return ctx.scope === 'all' || ctx.scope === wanted;
@@ -288,18 +290,29 @@ async function readSkills(ctx: DiscoveryContext): Promise<AdapterResult<Skill>> 
 
 // ---- MCP servers ----
 
-function computeSecretLikeEnvKeys(env: unknown): string[] {
-  if (!env || typeof env !== 'object') return [];
+function computeSecretLikeEnvKeys(...sources: unknown[]): string[] {
   const keys: string[] = [];
-  for (const [key, rawValue] of Object.entries(env as Record<string, unknown>)) {
-    if (typeof rawValue !== 'string') continue;
-    const keyLooksSecret = /(key|token|secret|password|passwd|auth)/i.test(key);
-    const isLiteral = !rawValue.startsWith('$');
-    if (keyLooksSecret && isLiteral && rawValue.length >= 8) {
-      keys.push(key);
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    for (const [key, rawValue] of Object.entries(source as Record<string, unknown>)) {
+      if (typeof rawValue !== 'string') continue;
+      const keyLooksSecret = /(key|token|secret|password|passwd|auth)/i.test(key);
+      const isLiteral = !rawValue.startsWith('$');
+      if (keyLooksSecret && isLiteral && rawValue.length >= 8) keys.push(key);
     }
   }
   return keys;
+}
+
+async function computeCommandFound(command: string | undefined, url: string | undefined): Promise<boolean | undefined> {
+  if (!command || url) return undefined;
+  if (isAbsolute(command)) return pathExists(command);
+  return isCommandOnPath(command, {
+    pathEnv: process.env.PATH ?? '',
+    delimiter,
+    pathExt: process.platform === 'win32' ? process.env.PATHEXT : undefined,
+    fileExists: pathExists,
+  });
 }
 
 interface RawMcpServer {
@@ -307,6 +320,7 @@ interface RawMcpServer {
   url?: string;
   args?: string[];
   env?: Record<string, unknown>;
+  headers?: Record<string, unknown>;
   disabled?: boolean;
 }
 
@@ -317,36 +331,43 @@ async function readMcpFile(
   items: McpServer[],
   skipped: Skipped[],
   warnings: string[],
+  configErrors: ConfigError[],
 ): Promise<void> {
   const read = await readTextFileSafe(filePath);
   if (!read.ok) {
     if (read.reason !== 'not found') skipped.push({ path: toDisplayPath(filePath, ctx), reason: read.reason });
     return;
   }
+  const displayPath = toDisplayPath(filePath, ctx);
   let parsed: unknown;
   try {
     parsed = JSON.parse(read.text);
   } catch (err) {
-    warnings.push(`${toDisplayPath(filePath, ctx)}: invalid JSON (${(err as Error).message})`);
+    const message = `invalid JSON (${(err as Error).message})`;
+    warnings.push(`${displayPath}: ${message}`);
+    configErrors.push({ agent: 'claude', scope: scopeVal, sourcePath: displayPath, message });
     return;
   }
   const mcpServers =
     parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>).mcpServers : undefined;
   if (!mcpServers || typeof mcpServers !== 'object') return;
 
-  const displayPath = toDisplayPath(filePath, ctx);
   for (const [name, defRaw] of Object.entries(mcpServers as Record<string, unknown>)) {
     const def = (defRaw ?? {}) as RawMcpServer;
+    const command = typeof def.command === 'string' ? def.command : undefined;
+    const url = typeof def.url === 'string' ? def.url : undefined;
+    const disabled = def.disabled === true;
     items.push({
       agent: 'claude',
       scope: scopeVal,
       sourcePath: displayPath,
       name,
-      command: typeof def.command === 'string' ? def.command : undefined,
-      url: typeof def.url === 'string' ? def.url : undefined,
+      command,
+      url,
       args: Array.isArray(def.args) ? def.args.filter((a): a is string => typeof a === 'string') : [],
-      secretLikeEnvKeys: computeSecretLikeEnvKeys(def.env),
-      disabled: def.disabled === true,
+      secretLikeEnvKeys: computeSecretLikeEnvKeys(def.env, def.headers),
+      disabled,
+      commandFound: disabled ? undefined : await computeCommandFound(command, url),
     });
   }
 }
@@ -355,16 +376,17 @@ async function readMcp(ctx: DiscoveryContext): Promise<AdapterResult<McpServer>>
   const items: McpServer[] = [];
   const skipped: Skipped[] = [];
   const warnings: string[] = [];
+  const configErrors: ConfigError[] = [];
 
   if (includesScope(ctx, 'global')) {
-    await readMcpFile(join(ctx.homeDir, '.claude.json'), 'global', ctx, items, skipped, warnings);
+    await readMcpFile(join(ctx.homeDir, '.claude.json'), 'global', ctx, items, skipped, warnings, configErrors);
   }
   if (includesScope(ctx, 'project')) {
-    await readMcpFile(join(ctx.projectRoot, '.mcp.json'), 'project', ctx, items, skipped, warnings);
+    await readMcpFile(join(ctx.projectRoot, '.mcp.json'), 'project', ctx, items, skipped, warnings, configErrors);
   }
 
   items.sort((a, b) => a.name.localeCompare(b.name));
-  return { items, skipped, warnings };
+  return { items, skipped, warnings, configErrors };
 }
 
 // ---- Plugins ----
@@ -495,7 +517,28 @@ async function readPlugins(ctx: DiscoveryContext): Promise<AdapterResult<PluginI
 
 // ---- Settings: hooks and permissions ----
 
-function extractHooks(raw: unknown, sourcePath: string, scopeVal: Scope): HookDef[] {
+function looksLikePath(token: string): boolean {
+  return token.startsWith('./') || token.startsWith('../') || token.startsWith('/') || token.startsWith('~/') || token.includes('/');
+}
+
+async function computeHookScriptCheck(command: string, ctx: DiscoveryContext): Promise<HookDef['scriptCheck']> {
+  const firstToken = command.trim().split(/\s+/)[0];
+  if (!firstToken || !looksLikePath(firstToken)) return undefined;
+  if (firstToken.includes('${')) return undefined; // e.g. ${CLAUDE_PLUGIN_ROOT}, unresolvable here
+  const substituted = firstToken.split('$CLAUDE_PROJECT_DIR').join(ctx.projectRoot);
+  if (substituted.includes('$')) return undefined; // other unresolvable variable
+
+  let resolvedPath: string;
+  if (substituted.startsWith('~/')) resolvedPath = join(ctx.homeDir, substituted.slice(2));
+  else if (isAbsolute(substituted)) resolvedPath = substituted;
+  else resolvedPath = join(ctx.projectRoot, substituted);
+
+  const exists = await pathExists(resolvedPath);
+  const executable = exists ? await isExecutable(resolvedPath) : true; // don't double-flag a missing file
+  return { resolvedPath, exists, executable };
+}
+
+async function extractHooks(raw: unknown, sourcePath: string, scopeVal: Scope, ctx: DiscoveryContext): Promise<HookDef[]> {
   const out: HookDef[] = [];
   if (!raw || typeof raw !== 'object') return out;
   for (const [event, groupsRaw] of Object.entries(raw as Record<string, unknown>)) {
@@ -504,13 +547,24 @@ function extractHooks(raw: unknown, sourcePath: string, scopeVal: Scope): HookDe
       if (!group || typeof group !== 'object') continue;
       const groupObj = group as Record<string, unknown>;
       const hooksArr = groupObj.hooks;
+      const commands: string[] = [];
       if (Array.isArray(hooksArr)) {
         for (const h of hooksArr) {
           const command = (h as Record<string, unknown> | undefined)?.command;
-          if (typeof command === 'string') out.push({ agent: 'claude', scope: scopeVal, sourcePath, event, command });
+          if (typeof command === 'string') commands.push(command);
         }
       } else if (typeof groupObj.command === 'string') {
-        out.push({ agent: 'claude', scope: scopeVal, sourcePath, event, command: groupObj.command });
+        commands.push(groupObj.command);
+      }
+      for (const command of commands) {
+        out.push({
+          agent: 'claude',
+          scope: scopeVal,
+          sourcePath,
+          event,
+          command,
+          scriptCheck: await computeHookScriptCheck(command, ctx),
+        });
       }
     }
   }
@@ -551,7 +605,7 @@ async function readSettings(ctx: DiscoveryContext): Promise<AdapterResult<HookDe
     }
     const obj = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
     const displayPath = toDisplayPath(path, ctx);
-    items.push(...extractHooks(obj.hooks, displayPath, scopeVal));
+    items.push(...(await extractHooks(obj.hooks, displayPath, scopeVal, ctx)));
     items.push(...extractPermissions(obj.permissions, displayPath, scopeVal));
   }
 

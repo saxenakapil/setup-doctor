@@ -1,0 +1,1 @@
+{"mcpServers": {"server0": {"command": "npx", "args": ["pkg0"]}, "server1": {"command": "npx", "args": ["pkg1"]}, "server2": {"command": "npx", "args": ["pkg2"]}, "server3": {"command": "npx", "args": ["pkg3"]}}}

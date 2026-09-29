@@ -15,9 +15,13 @@ const FIXTURES_ROOT = join(__dirname, '..', 'fixtures');
 const NO_HOME = join(FIXTURES_ROOT, '__no_home__');
 
 export async function loadFixtureModel(fixtureName: string): Promise<NormalizedModel> {
+  const root = join(FIXTURES_ROOT, fixtureName);
+  const hasProjectSubfolder = await pathExists(join(root, 'project'));
+  const homeCandidate = join(root, 'home');
+
   const ctx: DiscoveryContext = {
-    projectRoot: join(FIXTURES_ROOT, fixtureName),
-    homeDir: NO_HOME,
+    projectRoot: hasProjectSubfolder ? join(root, 'project') : root,
+    homeDir: (await pathExists(homeCandidate)) ? homeCandidate : NO_HOME,
     scope: 'all',
   };
   const model = emptyModel();
@@ -35,6 +39,7 @@ export async function loadFixtureModel(fixtureName: string): Promise<NormalizedM
   model.skills = skills.items;
   model.mcpServers = mcp.items;
   model.plugins = plugins.items;
+  model.mcpConfigErrors = mcp.configErrors ?? [];
   for (const item of settings.items) {
     if ('event' in item) model.hooks.push(item);
     else model.permissions.push(item);

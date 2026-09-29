@@ -58,6 +58,10 @@ export interface McpServer {
   args: string[];
   secretLikeEnvKeys: string[];
   disabled: boolean;
+  // Whether a stdio `command` was found on PATH (MCP-01b). undefined when not
+  // applicable (a `url` server, no command, or disabled). Computed by the
+  // adapter, which does the PATH/filesystem check, so the rule stays pure.
+  commandFound?: boolean;
 }
 
 export interface PluginInfo {
@@ -72,12 +76,23 @@ export interface PluginInfo {
   enabled: boolean;
 }
 
+// Result of resolving a hook's script path against disk (SET-02). Present
+// only when the hook's first token looked like a path. Computed by the
+// adapter so the rule stays pure.
+export interface HookScriptCheck {
+  resolvedPath: string;
+  exists: boolean;
+  // Always true on Windows (no exec bit); real posix check otherwise.
+  executable: boolean;
+}
+
 export interface HookDef {
   agent: Agent;
   scope: Scope;
   sourcePath: string;
   event: string;
   command: string;
+  scriptCheck?: HookScriptCheck;
 }
 
 export interface PermissionRule {
@@ -111,11 +126,21 @@ export interface Skipped {
   reason: string;
 }
 
+// A config file that exists but failed to parse (MCP-01a). Kept separate
+// from the free-text `warnings` list so MCP-01 can read it as data.
+export interface ConfigError {
+  agent: Agent;
+  scope: Scope;
+  sourcePath: string;
+  message: string;
+}
+
 export interface AdapterResult<T> {
   items: T[];
   skipped: Skipped[];
   warnings: string[];
   unsupported?: boolean;
+  configErrors?: ConfigError[];
 }
 
 export interface FindingExample {
@@ -174,6 +199,8 @@ export interface NormalizedModel {
   permissions: PermissionRule[];
   // Build manifest filenames present at the project root (INS-07), e.g. "package.json".
   buildManifests: string[];
+  // MCP config files that exist but failed to parse (MCP-01a).
+  mcpConfigErrors: ConfigError[];
   skipped: Skipped[];
   warnings: string[];
 }
@@ -195,6 +222,10 @@ export interface RuleContext {
   model: NormalizedModel;
   config: SetupDoctorConfig;
   sessions?: SessionRecord[];
+  // ISO timestamp used as "now" for session-window rules (SKL-06, MCP-05).
+  // Explicit rather than Date.now() inside the rule, so results stay
+  // reproducible in tests and don't silently drift day to day.
+  now?: string;
 }
 
 export interface Rule {
