@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": ["Bash(npm test:*)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "npx prettier --check ." }] }
+    ]
+  }
+}

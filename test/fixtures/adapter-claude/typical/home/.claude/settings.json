@@ -1,0 +1,4 @@
+{
+  "enabledPlugins": { "my-plugin@local": true },
+  "permissions": { "allow": ["Bash(*)"] }
+}

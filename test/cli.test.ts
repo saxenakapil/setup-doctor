@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { main } from '../src/cli.js';
 import { VERSION } from '../src/version.js';
 
@@ -8,7 +11,7 @@ function capture() {
   return { out, err, io: { out: (t: string) => out.push(t), err: (t: string) => err.push(t) } };
 }
 
-describe('cli scaffold', () => {
+describe('cli basics', () => {
   it('prints the version', async () => {
     const c = capture();
     expect(await main(['--version'], c.io)).toBe(0);
@@ -26,14 +29,68 @@ describe('cli scaffold', () => {
     expect(await main(['--nope'], c.io)).toBe(2);
   });
 
-  it('exits 2 on an unknown command', async () => {
-    const c = capture();
-    expect(await main(['frobnicate'], c.io)).toBe(2);
-  });
-
   it('exits 4 for commands not implemented yet', async () => {
     const c = capture();
-    expect(await main(['doctor'], c.io)).toBe(4);
+    expect(await main(['wrapped'], c.io)).toBe(4);
     expect(c.err.join('\n')).toContain('not implemented yet');
+  });
+
+  it('exits 2 on an unknown --format value', async () => {
+    const c = capture();
+    expect(await main(['doctor', '--format', 'yaml'], c.io)).toBe(2);
+  });
+
+  it('exits 2 on an unknown --agent value', async () => {
+    const c = capture();
+    expect(await main(['doctor', '--agent', 'copilot'], c.io)).toBe(2);
+  });
+
+  it('exits 2 on an unknown --scope value', async () => {
+    const c = capture();
+    expect(await main(['doctor', '--scope', 'nowhere'], c.io)).toBe(2);
+  });
+});
+
+describe('cli doctor (deterministic fixture home and project)', () => {
+  let homeDir: string;
+  let emptyProject: string;
+
+  beforeEach(() => {
+    homeDir = mkdtempSync(join(tmpdir(), 'setup-doctor-home-'));
+    emptyProject = mkdtempSync(join(tmpdir(), 'setup-doctor-project-'));
+  });
+
+  afterEach(() => {
+    rmSync(homeDir, { recursive: true, force: true });
+    rmSync(emptyProject, { recursive: true, force: true });
+  });
+
+  it('prints "Nothing to check" and exits 0 when nothing is detected', async () => {
+    const c = capture();
+    const code = await main(['doctor', emptyProject], c.io, homeDir);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('Nothing to check');
+  });
+
+  it('a bare path with no command word runs doctor', async () => {
+    const c = capture();
+    const code = await main([emptyProject], c.io, homeDir);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('Nothing to check');
+  });
+
+  it('prints a JSON report skeleton with no findings once an agent is detected', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const c = capture();
+    const code = await main([emptyProject, '--format', 'json'], c.io, homeDir);
+    expect(code).toBe(0);
+    const report = JSON.parse(c.out.join('\n'));
+    expect(report.schemaVersion).toBe(1);
+    expect(report.toolVersion).toBe(VERSION);
+    expect(report.agentsDetected).toEqual(['claude']);
+    expect(report.findings).toEqual([]);
+    expect(report.suppressed).toEqual([]);
+    expect(Array.isArray(report.skipped)).toBe(true);
+    expect(Array.isArray(report.warnings)).toBe(true);
   });
 });

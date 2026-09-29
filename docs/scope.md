@@ -197,10 +197,15 @@ Paths below are the expected locations. Adapters must tolerate any of them being
 | --- | --- | --- |
 | Instruction files | `~/.claude/CLAUDE.md` | `./CLAUDE.md`, `./.claude/CLAUDE.md`, `./CLAUDE.local.md`, and nested `CLAUDE.md` files up to depth 5 |
 | Skills | `~/.claude/skills/*/SKILL.md` | `./.claude/skills/*/SKILL.md` |
+| Subagents | `~/.claude/agents/*.md` | `./.claude/agents/*.md` |
 | MCP servers | `~/.claude.json` (`mcpServers` key) | `./.mcp.json` (`mcpServers` key) |
 | Plugins | `~/.claude/plugins/` (installed plugin folders with `.claude-plugin/plugin.json`) | none |
 | Settings, permissions, hooks, enabled plugins | `~/.claude/settings.json` | `./.claude/settings.json`, `./.claude/settings.local.json` |
 | Session logs (Wrapped) | `~/.claude/projects/<encoded-project>/*.jsonl` | |
+
+Subagent files are modeled and read as `Skill` items (section 9): a subagent file has the same frontmatter shape (`name`, `description`) as a `SKILL.md`. The adapter tags each `Skill` with its source kind (`skill` or `agent`) so rule messages can say "subagent" instead of "skill", but SKL-01 through SKL-06 run against both kinds unchanged. This keeps the rule count and category weights as specified; no new rule IDs or category is introduced for subagents.
+
+CLAUDE.md files may contain `@path/to/file` import directives (a line consisting of `@` followed by a relative or `~`-prefixed path). The adapter must resolve these before computing `estTokens` or running INS-06 (stale references): read the imported file, splice its content in place of the `@import` line, and recurse up to the same depth 5 limit used for nested instruction files (section 8.4), so a cycle cannot cause unbounded recursion. An import that does not resolve is recorded as a warning (not a finding) and left as literal text. This must ship in Phase 1: instruction size and stale-reference checks are wrong for any project using imports until it is in place.
 
 ### 8.2 Codex (Phase 6)
 
@@ -240,7 +245,8 @@ interface SourceRef { agent: Agent; scope: Scope; path: string; sizeBytes: numbe
 interface InstructionFile extends SourceRef { text: string; lines: string[]; estTokens: number }
 
 interface Skill extends SourceRef {
-  folder: string;               // skill folder path
+  kind: 'skill' | 'agent';      // 'agent' for subagent files, section 8.1
+  folder: string;               // skill (or agent) folder path
   name?: string;
   description?: string;
   frontmatterValid: boolean;
@@ -539,12 +545,12 @@ Package, build, CI, plugin manifests, skills, docs. Acceptance: `npm install`, `
 
 ### Phase 1: Core and Claude Code adapter
 
-Build `types.ts`, `defaults.ts`, `config.ts`, `runner.ts`, `text.ts`, `tokens.ts`, `suppress.ts`, the adapter registry, `frontmatter.ts`, and the Claude Code adapter for instructions, skills, MCP, plugins and settings (sessions come in Phase 5). Implement `detect()`, discovery limits, skip handling and path safety.
-Acceptance: fixtures in `test/fixtures/` (at least: empty project, typical project, monorepo, broken files) load into the normalized model; unreadable and oversized files land in `skipped`; running `setup-doctor doctor --format json` prints a JSON report skeleton with no findings.
+Build `types.ts`, `defaults.ts`, `config.ts`, `runner.ts`, `text.ts`, `tokens.ts`, `suppress.ts`, the adapter registry, `frontmatter.ts`, and the Claude Code adapter for instructions, skills (including subagents, section 8.1), MCP, plugins and settings (sessions come in Phase 5). Implement `detect()`, discovery limits, skip handling, path safety, and `@import` resolution for CLAUDE.md (section 8.1).
+Acceptance: fixtures in `test/fixtures/` (at least: empty project, typical project, monorepo, broken files, a CLAUDE.md using `@import`, a project with a subagent file) load into the normalized model; unreadable and oversized files land in `skipped`; running `setup-doctor doctor --format json` prints a JSON report skeleton with no findings; `estTokens` on the import fixture reflects the spliced content.
 
 ### Phase 2: Instruction and skill rules
 
-Implement INS-01 to INS-08 and SKL-01 to SKL-05 exactly as in `rules.md`. Implement `rules` and `explain` commands.
+Implement INS-01 to INS-08 and SKL-01 to SKL-05 exactly as in `rules.md`; these run against both skill and subagent items (section 8.1) without modification. Implement `rules` and `explain` commands.
 Acceptance: each rule has one triggering and one non-triggering test built from the examples in `rules.md`; `setup-doctor rules` lists them; `explain INS-02` prints the rule text.
 
 ### Phase 3: Remaining rules and scoring

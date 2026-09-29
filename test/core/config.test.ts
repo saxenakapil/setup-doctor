@@ -1,0 +1,62 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { ConfigParseError, loadConfigFile, mergeConfig } from '../../src/core/config.js';
+import { DEFAULT_CONFIG } from '../../src/core/defaults.js';
+
+describe('loadConfigFile', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'setup-doctor-config-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns raw: null when no config file exists', async () => {
+    const result = await loadConfigFile(dir);
+    expect(result.raw).toBeNull();
+  });
+
+  it('parses a valid config file', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), JSON.stringify({ theme: 'technical', disabledRules: ['INS-04'] }));
+    const result = await loadConfigFile(dir);
+    expect(result.raw).toMatchObject({ theme: 'technical', disabledRules: ['INS-04'] });
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('warns on unknown keys but still returns them ignored', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), JSON.stringify({ bogus: true }));
+    const result = await loadConfigFile(dir);
+    expect(result.warnings.length).toBe(1);
+  });
+
+  it('throws ConfigParseError on invalid JSON', async () => {
+    writeFileSync(join(dir, '.setupdoctorrc'), '{ not json');
+    await expect(loadConfigFile(dir)).rejects.toThrow(ConfigParseError);
+  });
+});
+
+describe('mergeConfig', () => {
+  it('falls back to defaults when nothing else is given', () => {
+    expect(mergeConfig(null, {})).toEqual(DEFAULT_CONFIG);
+  });
+
+  it('CLI overrides win over the config file', () => {
+    const merged = mergeConfig({ theme: 'technical' }, { theme: 'mix' });
+    expect(merged.theme).toBe('mix');
+  });
+
+  it('config file wins over defaults', () => {
+    const merged = mergeConfig({ theme: 'technical' }, {});
+    expect(merged.theme).toBe('technical');
+  });
+
+  it('merges thresholds instead of replacing wholesale', () => {
+    const merged = mergeConfig({ thresholds: { 'INS-02': { warnTokens: 1000, highTokens: 3000 } } }, {});
+    expect(merged.thresholds['INS-02']).toEqual({ warnTokens: 1000, highTokens: 3000 });
+  });
+});
