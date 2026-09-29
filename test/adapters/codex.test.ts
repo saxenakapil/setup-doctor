@@ -60,4 +60,13 @@ describe('codex adapter', () => {
     for await (const r of codexAdapter.readSessions(ctx, { kind: 'all' })) out.push(r);
     expect(out).toEqual([]);
   });
+
+  it('readSessions parses real rollout files when ~/.codex/sessions does exist', async () => {
+    const wrappedHome = join(__dirname, '..', 'fixtures', 'wrapped-codex', 'home');
+    const wrappedCtx: DiscoveryContext = { projectRoot: ctx.projectRoot, homeDir: wrappedHome, scope: 'all' };
+    const out = [];
+    for await (const r of codexAdapter.readSessions(wrappedCtx, { kind: 'all' })) out.push(r);
+    expect(out.length).toBeGreaterThan(0);
+    expect(out.every((r) => r.agent === 'codex')).toBe(true);
+  });
 });

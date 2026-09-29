@@ -5,11 +5,11 @@
 //
 // Verified against a real ~/.codex/config.toml on 2026-09-29 (see
 // docs/notes.md): `[mcp_servers.<name>]` tables with `command`/`args` and a
-// nested `[mcp_servers.<name>.env]` table are real, observed shapes. No
-// `~/.codex/sessions/` directory was present on that install (state is
-// stored in SQLite instead), so readSessions yields nothing when that
-// directory is absent -- exactly the documented "Wrapped not supported"
-// fallback path (section 11.7), not a special case here.
+// nested `[mcp_servers.<name>.env]` table are real, observed shapes.
+// readSessions parses ~/.codex/sessions/**/*.jsonl (see
+// wrapped/parse-codex.ts), verified against a real Codex CLI 0.159.0
+// install once one was available -- see docs/notes.md's Phase 3-era entry
+// for why that had not been possible earlier.
 
 import { join } from 'node:path';
 import { DISCOVERY_DEPTH_LIMIT } from '../core/defaults.js';
@@ -19,6 +19,8 @@ import { computeCommandFound, computeSecretLikeEnvKeys } from './mcp-common.js';
 import { toDisplayPath } from './display-path.js';
 import { parseToml, type TomlTable } from './toml.js';
 import { findNestedFiles, pathExists, readTextFileSafe } from './fs-utils.js';
+import { resolvePeriodBounds } from '../wrapped/period.js';
+import { readAllSessions as readAllCodexSessions } from '../wrapped/parse-codex.js';
 import type {
   Adapter,
   AdapterResult,
@@ -220,18 +222,15 @@ async function detect(ctx: DiscoveryContext): Promise<boolean> {
   return pathExists(join(ctx.projectRoot, 'AGENTS.md'));
 }
 
-async function* readSessions(ctx: DiscoveryContext, _period: Period): AsyncGenerator<SessionRecord> {
-  // Experimental (docs/scope.md section 11.7): only the documented
-  // ~/.codex/sessions/*.jsonl location is read, and only if it exists. No
-  // real install observed with this directory as of 2026-09-29 (see
-  // docs/notes.md) -- modern Codex appears to store state in SQLite, which
-  // this tool does not parse. Yields nothing when the directory is absent,
-  // matching the "not supported" fallback in the CLI.
-  const sessionsDir = join(ctx.homeDir, '.codex', 'sessions');
-  if (!(await pathExists(sessionsDir))) return;
-  // A real, verified log source for Codex has not been found; no parser is
-  // implemented against it yet. See docs/notes.md "Backlog" for follow-up.
-  void _period;
+async function* readSessions(ctx: DiscoveryContext, period: Period): AsyncGenerator<SessionRecord> {
+  // ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl, created lazily on the
+  // first real session (verified 2026-09-29 against a real Codex CLI
+  // 0.159.0 install -- see docs/notes.md; a fresh install with no session
+  // run yet, or one using only the SQLite thread-history index, has no
+  // sessions/ directory at all, which readAllSessions already treats as
+  // "nothing to read", not an error).
+  const bounds = resolvePeriodBounds(period, new Date());
+  yield* readAllCodexSessions(ctx.homeDir, bounds);
 }
 
 export const codexAdapter: Adapter = {

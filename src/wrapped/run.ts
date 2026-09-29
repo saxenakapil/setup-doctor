@@ -3,13 +3,15 @@
 // section 11.
 
 import { homedir } from 'node:os';
-import { readAllSessions } from './parse-claude.js';
+import { resolve } from 'node:path';
+import { getAdapter } from '../adapters/index.js';
 import { computeMetrics, buildActivityStrip, type ActivityCell, type WrappedMetrics } from './metrics.js';
 import { classifyPersona, type Persona } from './persona.js';
 import { parsePeriodFlag, resolvePeriodBounds, resolveTz } from './period.js';
-import type { Period } from '../core/types.js';
+import type { Agent, Period } from '../core/types.js';
 
 export interface WrappedRunOptions {
+  agent: Agent;
   homeDir?: string;
   periodFlag: string;
   tz?: string;
@@ -51,9 +53,13 @@ export async function runWrapped(options: WrappedRunOptions): Promise<WrappedRun
 
   const tz = resolveTz(options.tz);
   const homeDir = options.homeDir ?? homedir();
+  const adapter = getAdapter(options.agent);
 
   const records = [];
-  for await (const record of readAllSessions(homeDir, bounds)) records.push(record);
+  if (adapter) {
+    const ctx = { projectRoot: resolve('.'), homeDir, scope: 'all' as const };
+    for await (const record of adapter.readSessions(ctx, period)) records.push(record);
+  }
 
   const metrics = computeMetrics(records, tz);
   const persona = classifyPersona(metrics);

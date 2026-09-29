@@ -40,6 +40,7 @@ function fitTitleFontSize(text: string, maxWidth: number, baseFontSize: number, 
 
 export interface CardInput {
   theme: Theme;
+  agentLabel: string;
   periodLabel: string;
   sessions: number;
   activeDays: number;
@@ -185,7 +186,7 @@ export function renderLandscapeCardSvg(input: CardInput): string {
     ? renderStatList(theme, input, leftX, 220)
     : renderStatTiles(theme, buildStatTiles(input), leftX, 190, 220, 110, 16);
 
-  const titleText = `Your last ${input.periodLabel} with Claude Code`;
+  const titleText = `Your last ${input.periodLabel} with ${input.agentLabel}`;
   const titleMaxWidth = rightX - leftX - 24;
   const titleFontSize = fitTitleFontSize(titleText, titleMaxWidth, 46, theme.name === 'technical', 24);
 
@@ -226,7 +227,7 @@ export function renderPortraitCardSvg(input: CardInput): string {
     ? renderStatList(theme, input, x, 260)
     : renderStatTiles(theme, buildStatTiles(input), x, 230, (W - 2 * x - 16) / 2, 120, 16);
 
-  const titleText = `Your last ${input.periodLabel} with Claude Code`;
+  const titleText = `Your last ${input.periodLabel} with ${input.agentLabel}`;
   const titleMaxWidth = W - 2 * x;
   const titleFontSize = fitTitleFontSize(titleText, titleMaxWidth, 52, theme.name === 'technical', 26);
 

@@ -31,6 +31,12 @@ const defaultIo: Io = {
 const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain']);
 const FORMATS = new Set(['terminal', 'json', 'html']);
 const AGENT_VALUES = new Set(['claude', 'codex', 'cursor', 'copilot', 'all']);
+const AGENT_LABELS: Record<string, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  cursor: 'Cursor',
+  copilot: 'Copilot',
+};
 const SCOPE_VALUES = new Set(['project', 'global', 'all']);
 const MIN_SEVERITY_VALUES = new Set(['low', 'medium', 'high', 'critical']);
 const SEVERITY_RANK: Record<Severity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
@@ -69,7 +75,7 @@ Options:
   --dry-run    With --fix, show diffs and change nothing (doctor)
   --allow-dirty  With --fix, allow editing files in a project with uncommitted git changes (doctor)
 
-Status: doctor, badge, wrapped (Claude Code) and doctor --fix are implemented.
+Status: doctor, badge, wrapped (Claude Code, Codex) and doctor --fix are implemented.
 See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
@@ -422,7 +428,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
     io.err(`Unknown --agent value: ${agentFlag}\nValid values: ${[...AGENT_VALUES].join(', ')}`);
     return 2;
   }
-  if (agentFlag === 'codex' || agentFlag === 'cursor' || agentFlag === 'copilot') {
+  if (agentFlag === 'cursor' || agentFlag === 'copilot') {
     io.out(`Wrapped is not supported for ${agentFlag} yet`);
     return 0;
   }
@@ -440,7 +446,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
   const tz = typeof flags.tz === 'string' ? flags.tz : undefined;
 
   try {
-    const result = await runWrapped({ homeDir, periodFlag, tz });
+    const result = await runWrapped({ agent: agentFlag as Agent, homeDir, periodFlag, tz });
     if (!result.ok) {
       io.err(
         `Invalid --period value: ${periodFlag}\nValid values: 7d, 30d, ytd, all, or YYYY-MM-DD:YYYY-MM-DD`,
@@ -490,6 +496,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
 
     const cardShowProjects = showProjects && !anonymize;
     const cardInput: Omit<CardInput, 'theme'> = {
+      agentLabel: AGENT_LABELS[agentFlag] ?? agentFlag,
       periodLabel: report.periodLabel,
       sessions: report.metrics.sessions,
       activeDays: report.metrics.activeDays,

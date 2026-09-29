@@ -9,6 +9,9 @@
     { "pattern": "opus-4-8", "inputPerM": 5, "outputPerM": 25, "cacheReadMultiplier": 0.1, "cacheWriteMultiplier": 1.25 },
     { "pattern": "opus-5-5", "inputPerM": 4, "outputPerM": 20, "cacheReadMultiplier": 0.05, "cacheWriteMultiplier": 1.25 },
     { "pattern": "opus-5", "inputPerM": 5, "outputPerM": 25, "cacheReadMultiplier": 0.1, "cacheWriteMultiplier": 1.25 },
-    { "pattern": "fable-5", "inputPerM": 10, "outputPerM": 50, "cacheReadMultiplier": 0.1, "cacheWriteMultiplier": 1.25 }
+    { "pattern": "fable-5", "inputPerM": 10, "outputPerM": 50, "cacheReadMultiplier": 0.1, "cacheWriteMultiplier": 1.25 },
+    { "pattern": "gpt-6-astra", "inputPerM": 10, "outputPerM": 50, "cacheReadMultiplier": 0.1, "cacheWriteMultiplier": 1 },
+    { "pattern": "gpt-6-sol", "inputPerM": 2, "outputPerM": 10, "cacheReadMultiplier": 0.1, "cacheWriteMultiplier": 1 },
+    { "pattern": "gpt-6-luna", "inputPerM": 0.1, "outputPerM": 0.5, "cacheReadMultiplier": 0.1, "cacheWriteMultiplier": 1 }
   ]
 }

@@ -1,10 +1,11 @@
 # `wrapped`: usage summary and shareable card
 
 ```bash
-npx setup-doctor wrapped
+npx setup-doctor wrapped                    # Claude Code (default)
+npx setup-doctor wrapped --agent codex      # Codex
 ```
 
-Summarizes your local Claude Code session logs (`~/.claude/projects/**/*.jsonl`) into a terminal report plus a shareable SVG/PNG card, in the style of a "year in review." Currently Claude Code only; see [`agents.md`](agents.md) for why Codex and Cursor are not supported yet.
+Summarizes your local session logs into a terminal report plus a shareable SVG/PNG card, in the style of a "year in review." Supported for Claude Code (`~/.claude/projects/**/*.jsonl`) and Codex (`~/.codex/sessions/**/*.jsonl`); see [`agents.md`](agents.md) for why Copilot and Cursor are not supported yet.
 
 A real run (against a small synthetic dataset, not anyone's real usage) looks like this:
 
@@ -25,6 +26,25 @@ Persona: Steady Builder. Steady, consistent use.
 Wrote setup-doctor-wrapped-1200x630.svg, setup-doctor-wrapped-1080x1350.svg
 Wrote PNG versions (optional @resvg/resvg-js dependency found).
 ```
+
+A real Codex run looks the same shape, with Codex's own model names and tool labels:
+
+```
+$ npx setup-doctor wrapped --agent codex --period all
+Setup Doctor Wrapped  all time
+
+Sessions 2   Active days 1   Tokens 104,945   Est. cost* $0.0066
+Busiest hour 16:00   Busiest weekday Tuesday   Longest streak 1 day
+Cache hit rate 42%
+
+Top models: gpt-6-luna (100%)
+Top tools: CommandExecution
+Top projects: /private/tmp/codex-test-project (52,781 tok), /private/tmp/codex-test2 (52,164 tok)
+
+Persona: Steady Builder. Steady, consistent use.
+```
+
+Codex's "top tools" are its own event types (`CommandExecution`, and others as they show up in real usage), not Claude Code's tool names (`Bash`, `Edit`, and so on): the two agents don't share a vocabulary here, so do not expect the same labels across agents.
 
 Two card files are always written (a 1200x630 landscape and a 1080x1350 portrait, matched to common social-share dimensions), as SVG always and as PNG too if the optional `@resvg/resvg-js` package is installed. Without it, you still get both SVGs and a note telling you PNG needs the optional package.
 

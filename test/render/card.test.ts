@@ -5,6 +5,7 @@ import { getTheme, THEME_NAMES } from '../../src/render/themes/index.js';
 function baseInput(themeName: (typeof THEME_NAMES)[number]): CardInput {
   return {
     theme: getTheme(themeName),
+    agentLabel: 'Claude Code',
     periodLabel: '30 days',
     sessions: 12,
     activeDays: 8,
@@ -37,6 +38,12 @@ describe.each([
     expect(svg).toContain('<title>');
     expect(svg).toContain('<desc>');
     expect(svg).toContain('30 days');
+  });
+
+  it('shows the real agent name in the title, not a hardcoded one (regression)', () => {
+    const svg = render({ ...baseInput('playful'), agentLabel: 'Codex' });
+    expect(svg).toContain('with Codex');
+    expect(svg).not.toContain('with Claude Code');
   });
 
   it('never shows a project name when showProjects is false, even though data was supplied', () => {

@@ -335,11 +335,33 @@ describe('cli wrapped (deterministic fixture home)', () => {
     expect(code).toBe(2);
   });
 
-  it('prints "not supported" for codex/cursor and exits 0', async () => {
+  it('prints "not supported" for cursor/copilot and exits 0', async () => {
+    const c = capture();
+    const code = await main(['wrapped', '--agent', 'cursor', '--out', outDir], c.io, WRAPPED_HOME);
+    expect(code).toBe(0);
+    expect(c.out.join('\n')).toContain('not supported for cursor yet');
+  });
+
+  it('codex is supported: "no sessions" when the fixture home has none, not "not supported"', async () => {
     const c = capture();
     const code = await main(['wrapped', '--agent', 'codex', '--out', outDir], c.io, WRAPPED_HOME);
     expect(code).toBe(0);
-    expect(c.out.join('\n')).toContain('not supported for codex yet');
+    expect(c.out.join('\n')).toContain('No sessions in this period');
+    expect(c.out.join('\n')).not.toContain('not supported');
+  });
+
+  it('codex wrapped against a real fixture home: real numbers, the card names Codex not Claude Code, and writes card files', async () => {
+    const codexHome = join(__dirname, 'fixtures', 'wrapped-codex', 'home');
+    const c = capture();
+    const code = await main(['wrapped', '--agent', 'codex', '--period', 'all', '--tz', 'UTC', '--out', outDir, '--yes'], c.io, codexHome);
+    expect(code).toBe(0);
+    const text = c.out.join('\n');
+    expect(text).toContain('Sessions 2');
+    expect(text).toContain('Active days 2');
+    expect(existsSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'))).toBe(true);
+    const svg = readFileSync(join(outDir, 'setup-doctor-wrapped-1200x630.svg'), 'utf8');
+    expect(svg).toContain('with Codex');
+    expect(svg).not.toContain('with Claude Code');
   });
 
   it('reports "no sessions in this period" for a narrow window and writes no card files', async () => {

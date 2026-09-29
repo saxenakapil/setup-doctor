@@ -3,8 +3,8 @@
 | Agent | Doctor | Wrapped |
 | --- | --- | --- |
 | Claude Code | Full (all 26 rules) | Supported |
+| Codex | Instructions + MCP servers only | Supported |
 | GitHub Copilot CLI | Instructions, skills, MCP servers, settings/hooks (no plugin concept) | Not supported yet |
-| Codex | Instructions + MCP servers only | Not supported yet |
 | Cursor | Instructions + MCP servers only | Not supported yet |
 
 Skills, subagents, plugins and settings/hooks checks are Claude Code/Copilot-specific; those categories are excluded from the score for Codex/Cursor-only setups (shown as `n/a` in the category breakdown), not counted against you as if they were failing.
@@ -15,11 +15,11 @@ Skills, subagents, plugins and settings/hooks checks are Claude Code/Copilot-spe
 
 **GitHub Copilot CLI**: `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` (project); `.github/skills`, plus `.claude/skills` and `.agents/skills`, which Copilot CLI is documented to read directly (project), `~/.copilot/skills` and `~/.agents/skills` (personal); `.vscode/mcp.json` (`servers` key), the portable `.mcp.json` (`mcpServers` key, same file Claude Code reads), and `~/.copilot/mcp-config.json`; hooks from **two separate sources**, combined: the shared `.claude/settings.json`/`settings.local.json`, and Copilot's own native `.github/hooks/*.json` (project) / `~/.copilot/hooks/*.json` (personal).
 
-**Codex**: `AGENTS.md` (project); `~/.codex/config.toml`'s `[mcp_servers.*]` tables (global).
+**Codex**: `AGENTS.md` (project); `~/.codex/config.toml`'s `[mcp_servers.*]` tables (global); for Wrapped, `~/.codex/sessions/<year>/<month>/<day>/rollout-*.jsonl`, created lazily the first time a real session runs (a fresh install, or one that has only used the separate SQLite thread-history index, has no `sessions/` directory at all yet).
 
 **Cursor**: `.cursorrules` and `.cursor/rules/*.mdc` / `*.md` (project); `.cursor/mcp.json` (project) and `~/.cursor/mcp.json` (global).
 
-None of Codex's or Cursor's sources were verified against a real local install when this adapter was built (no real config existed on the build machine); they follow the documented shape directly. Claude Code's and Copilot's were both verified against real installs and, in Copilot's case, re-checked after a documentation gap was found and fixed. See [`docs/notes.md`](../notes.md) for the full history of what was and was not verified.
+Cursor's Doctor sources were not verified against a real local install when its adapter was built (no real config existed on the build machine); they follow the documented shape directly. Claude Code's, Codex's and Copilot's were all verified against real installs -- Codex's Wrapped support in particular required installing Codex CLI and running real sessions specifically to check, after an earlier check on a different machine had found no `sessions/` directory and concluded (wrongly, as it turned out) that Wrapped support wasn't schedulable. See [`docs/notes.md`](../notes.md) for the full history of what was and was not verified.
 
 ## When two agents share a file
 
