@@ -25,3 +25,4 @@ jobs:
       - run: npm run check:network
       - run: npm run check:version
       - run: npm run build
+      - run: npm run smoke:publish
