@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -48,6 +48,16 @@ describe('cli basics', () => {
   it('exits 2 on an unknown --scope value', async () => {
     const c = capture();
     expect(await main(['doctor', '--scope', 'nowhere'], c.io)).toBe(2);
+  });
+
+  it('exits 2 on an unknown --theme value', async () => {
+    const c = capture();
+    expect(await main(['doctor', '--theme', 'neon'], c.io)).toBe(2);
+  });
+
+  it('exits 2 on an unknown --min-severity value', async () => {
+    const c = capture();
+    expect(await main(['doctor', '--min-severity', 'urgent'], c.io)).toBe(2);
   });
 });
 
@@ -116,5 +126,92 @@ describe('cli doctor (deterministic fixture home and project)', () => {
     const c = capture();
     const code = await main([emptyProject, '--ci', '--fail-under', '90'], c.io, homeDir);
     expect(code).toBe(0);
+  });
+
+  it('--format html writes a self-contained report file and exits 0', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'API_KEY=aZ9kQ2mP7xR4vL1wT6bN3jH8\n');
+    const outDir = mkdtempSync(join(tmpdir(), 'setup-doctor-out-'));
+    try {
+      const c = capture();
+      const code = await main([emptyProject, '--format', 'html', '--theme', 'technical', '--out', outDir], c.io, homeDir);
+      expect(code).toBe(0);
+      const htmlPath = join(outDir, 'setup-doctor-report.html');
+      expect(existsSync(htmlPath)).toBe(true);
+      const html = readFileSync(htmlPath, 'utf8');
+      expect(html).toContain('<!doctype html>');
+      expect(html).toContain('[REDACTED]');
+      expect(html).not.toContain('aZ9kQ2mP7xR4vL1wT6bN3jH8');
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to overwrite an existing output file without --yes, and succeeds with --yes', async () => {
+    writeFileSync(join(emptyProject, 'CLAUDE.md'), 'Run npm test before committing.\n');
+    const outDir = mkdtempSync(join(tmpdir(), 'setup-doctor-out-'));
+    try {
+      const first = capture();
+      expect(await main([emptyProject, '--format', 'html', '--out', outDir], first.io, homeDir)).toBe(0);
+
+      const second = capture();
+      expect(await main([emptyProject, '--format', 'html', '--out', outDir], second.io, homeDir)).toBe(2);
+      expect(second.err.join('\n')).toContain('--yes');
+
+      const third = capture();
+      expect(await main([emptyProject, '--format', 'html', '--out', outDir, '--yes'], third.io, homeDir)).toBe(0);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  it('--min-severity hides low findings from the terminal report without changing the score', async () => {
+    writeFileSync(
+      join(emptyProject, 'CLAUDE.md'),
+      'Write clean code.\nRun npm test before committing.\n',
+    );
+    const c = capture();
+    const code = await main([emptyProject, '--min-severity', 'high'], c.io, homeDir);
+    expect(code).toBe(0);
+    const text = c.out.join('\n');
+    expect(text).not.toContain('INS-05');
+  });
+});
+
+describe('cli badge (deterministic fixture home and project)', () => {
+  let homeDir: string;
+  let project: string;
+  let outDir: string;
+
+  beforeEach(() => {
+    homeDir = mkdtempSync(join(tmpdir(), 'setup-doctor-home-'));
+    project = mkdtempSync(join(tmpdir(), 'setup-doctor-project-'));
+    outDir = mkdtempSync(join(tmpdir(), 'setup-doctor-out-'));
+    writeFileSync(join(project, 'CLAUDE.md'), 'Run npm test before committing.\n');
+  });
+
+  afterEach(() => {
+    rmSync(homeDir, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+    rmSync(outDir, { recursive: true, force: true });
+  });
+
+  it('writes a badge SVG and prints the markdown snippet', async () => {
+    const c = capture();
+    const code = await main(['badge', project, '--out', outDir], c.io, homeDir);
+    expect(code).toBe(0);
+    const svgPath = join(outDir, 'setup-doctor-badge.svg');
+    expect(existsSync(svgPath)).toBe(true);
+    expect(readFileSync(svgPath, 'utf8')).toContain('<svg');
+    expect(c.out.join('\n')).toContain('https://img.shields.io/badge/setup%20doctor-100%20Excellent-brightgreen');
+  });
+
+  it('--endpoint also writes the shields.io endpoint JSON', async () => {
+    const c = capture();
+    const code = await main(['badge', project, '--out', outDir, '--endpoint'], c.io, homeDir);
+    expect(code).toBe(0);
+    const jsonPath = join(outDir, 'setup-doctor-badge.json');
+    expect(existsSync(jsonPath)).toBe(true);
+    const endpoint = JSON.parse(readFileSync(jsonPath, 'utf8'));
+    expect(endpoint).toEqual({ schemaVersion: 1, label: 'setup doctor', message: '100 Excellent', color: 'brightgreen' });
   });
 });

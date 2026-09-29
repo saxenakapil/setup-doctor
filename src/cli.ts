@@ -1,8 +1,14 @@
+import { resolve } from 'node:path';
 import { ConfigParseError, loadConfigFile, mergeConfig } from './core/config.js';
 import { runDoctor } from './core/runner.js';
-import type { Agent, Scope } from './core/types.js';
+import { writeOutputFile } from './core/output.js';
+import type { Agent, Scope, Severity } from './core/types.js';
 import { ALL_RULES, getRule } from './rules/index.js';
 import { renderTerminalReport } from './render/terminal.js';
+import { renderHtmlReport } from './render/html.js';
+import { renderJsonReport } from './render/json.js';
+import { renderBadgeSvg, renderEndpointBadgeJson, renderMarkdownSnippet } from './render/badge.js';
+import { getTheme, isThemeName, THEME_NAMES, type ThemeName } from './render/themes/index.js';
 import { RULES_VERSION, VERSION } from './version.js';
 
 export interface Io {
@@ -19,6 +25,8 @@ const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain']);
 const FORMATS = new Set(['terminal', 'json', 'html']);
 const AGENT_VALUES = new Set(['claude', 'codex', 'cursor', 'all']);
 const SCOPE_VALUES = new Set(['project', 'global', 'all']);
+const MIN_SEVERITY_VALUES = new Set(['low', 'medium', 'high', 'critical']);
+const SEVERITY_RANK: Record<Severity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
 
 const HELP = `setup-doctor ${VERSION}
 Score and improve your AI coding agent setup. Local-only, open source.
@@ -33,14 +41,18 @@ Usage:
 Options:
   --help       Show this help
   --version    Show the version
-  --format     terminal | json | html (doctor: html not implemented yet)
+  --format     terminal | json | html (doctor)
   --agent      claude | codex | cursor | all
   --scope      project | global | all
+  --theme      playful | technical | mix (doctor --format html, badge)
+  --min-severity  low | medium | high | critical (doctor; hides findings, score is unaffected)
+  --out <path> Output folder (doctor --format html/json with --out, badge)
+  --yes        Overwrite existing output files without asking
+  --endpoint   Also write the shields.io endpoint JSON (badge)
   --ci         No prompts, stable output (doctor)
   --fail-under <n>   With --ci, exit 1 if the score is below n (doctor)
 
-Status: doctor runs discovery, all 26 rules and scoring, with terminal and
-json output. The html report, wrapped and badge are still in progress.
+Status: doctor and badge are implemented. wrapped is still in progress.
 See docs/scope.md for the full plan.`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
@@ -68,9 +80,18 @@ function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string |
   return { flags, positionals };
 }
 
-async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
-  const { flags, positionals } = parseArgsAfterCommand(rest);
+interface CommonDoctorFlags {
+  format: string;
+  agentFlag: string;
+  scopeFlag: string;
+  themeFlag: ThemeName;
+  minSeverity: Severity;
+  outDir: string;
+  yes: boolean;
+}
 
+/** Parses and validates flags shared by `doctor` and `badge`. Returns an exit code on error. */
+function parseCommonFlags(flags: Record<string, string | boolean>, io: Io): CommonDoctorFlags | number {
   const format = typeof flags.format === 'string' ? flags.format : 'terminal';
   if (!FORMATS.has(format)) {
     io.err(`Unknown --format value: ${format}\nValid values: ${[...FORMATS].join(', ')}`);
@@ -89,15 +110,52 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
     return 2;
   }
 
+  const themeRaw = typeof flags.theme === 'string' ? flags.theme : 'playful';
+  if (!isThemeName(themeRaw)) {
+    io.err(`Unknown --theme value: ${themeRaw}\nValid values: ${THEME_NAMES.join(', ')}`);
+    return 2;
+  }
+
+  const minSeverityRaw = typeof flags['min-severity'] === 'string' ? flags['min-severity'] : 'low';
+  if (!MIN_SEVERITY_VALUES.has(minSeverityRaw)) {
+    io.err(`Unknown --min-severity value: ${minSeverityRaw}\nValid values: ${[...MIN_SEVERITY_VALUES].join(', ')}`);
+    return 2;
+  }
+
+  const outDir = typeof flags.out === 'string' ? resolve(flags.out) : resolve('.');
+  const yes = flags.yes === true;
+
+  return {
+    format,
+    agentFlag,
+    scopeFlag,
+    themeFlag: themeRaw,
+    minSeverity: minSeverityRaw as Severity,
+    outDir,
+    yes,
+  };
+}
+
+function filterByMinSeverity<T extends { severity: Severity }>(items: T[], min: Severity): T[] {
+  const minRank = SEVERITY_RANK[min];
+  return items.filter((f) => SEVERITY_RANK[f.severity] >= minRank);
+}
+
+async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
+  const { flags, positionals } = parseArgsAfterCommand(rest);
+  const parsed = parseCommonFlags(flags, io);
+  if (typeof parsed === 'number') return parsed;
+  const { format, agentFlag, scopeFlag, themeFlag, minSeverity, outDir, yes } = parsed;
+
   const ci = flags.ci === true;
   let failUnder: number | undefined;
   if (flags['fail-under'] !== undefined) {
-    const parsed = Number(flags['fail-under']);
-    if (!Number.isFinite(parsed)) {
+    const parsedFailUnder = Number(flags['fail-under']);
+    if (!Number.isFinite(parsedFailUnder)) {
       io.err(`Invalid --fail-under value: ${String(flags['fail-under'])}`);
       return 2;
     }
-    failUnder = parsed;
+    failUnder = parsedFailUnder;
   }
 
   try {
@@ -113,28 +171,36 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
       return 0;
     }
 
+    const displayedFindings = filterByMinSeverity(report.findings, minSeverity);
+    const highAndCriticalCount = report.findings.filter((f) => f.severity === 'high' || f.severity === 'critical').length;
+
     if (format === 'json') {
-      io.out(
-        JSON.stringify(
-          {
-            schemaVersion: 1,
-            toolVersion: report.toolVersion,
-            rulesVersion: report.rulesVersion,
-            agentsDetected: report.agentsDetected,
-            score: report.score,
-            band: report.band,
-            capped: report.capped,
-            categories: report.categories,
-            overheadTokens: report.overheadTokens,
-            findings: report.findings,
-            suppressed: report.suppressed,
-            skipped: report.skipped,
-            warnings: report.warnings,
-          },
-          null,
-          2,
-        ),
-      );
+      const jsonReport = renderJsonReport({
+        toolVersion: report.toolVersion,
+        rulesVersion: report.rulesVersion,
+        theme: themeFlag,
+        agentsDetected: report.agentsDetected,
+        score: report.score,
+        band: report.band,
+        capped: report.capped,
+        categories: report.categories,
+        overheadTokens: report.overheadTokens,
+        findings: displayedFindings,
+        suppressed: report.suppressed,
+        skipped: report.skipped,
+        warnings: report.warnings,
+      });
+      const text = JSON.stringify(jsonReport, null, 2);
+      if (flags.out !== undefined) {
+        const result = await writeOutputFile(outDir, 'setup-doctor-report.json', text, yes);
+        if (!result.ok) {
+          io.err(`setup-doctor doctor: ${result.path} ${result.reason}`);
+          return 2;
+        }
+        io.out(`Wrote ${result.path}`);
+      } else {
+        io.out(text);
+      }
     } else if (format === 'terminal') {
       io.out(
         renderTerminalReport({
@@ -144,14 +210,32 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
           categories: report.categories,
           rulesVersion: report.rulesVersion,
           overheadTokens: report.overheadTokens,
-          findings: report.findings,
+          findings: displayedFindings,
           suppressedCount: report.suppressed.length,
           skipped: report.skipped,
         }),
       );
     } else {
-      io.err('setup-doctor doctor: --format html is not implemented yet.');
-      return 4;
+      const html = renderHtmlReport({
+        toolVersion: report.toolVersion,
+        rulesVersion: report.rulesVersion,
+        theme: getTheme(themeFlag),
+        score: report.score,
+        band: report.band,
+        capped: report.capped,
+        categories: report.categories,
+        overheadTokens: report.overheadTokens,
+        findings: displayedFindings,
+        highAndCriticalCount,
+        suppressed: report.suppressed,
+        skipped: report.skipped,
+      });
+      const result = await writeOutputFile(outDir, 'setup-doctor-report.html', html, yes);
+      if (!result.ok) {
+        io.err(`setup-doctor doctor: ${result.path} ${result.reason}`);
+        return 2;
+      }
+      io.out(`Wrote ${result.path}`);
     }
 
     if (ci && failUnder !== undefined && report.score !== null && report.score < failUnder) {
@@ -160,6 +244,60 @@ async function runDoctorCommand(rest: string[], io: Io, homeDir?: string): Promi
     return 0;
   } catch (err) {
     io.err(`setup-doctor doctor: internal error: ${(err as Error).message}\nPlease file an issue.`);
+    return 4;
+  }
+}
+
+async function runBadgeCommand(rest: string[], io: Io, homeDir?: string): Promise<number> {
+  const { flags, positionals } = parseArgsAfterCommand(rest);
+  const parsed = parseCommonFlags(flags, io);
+  if (typeof parsed === 'number') return parsed;
+  const { agentFlag, scopeFlag, themeFlag, outDir, yes } = parsed;
+  const endpoint = flags.endpoint === true;
+
+  try {
+    const report = await runDoctor({
+      path: positionals[0],
+      agent: agentFlag as Agent | 'all',
+      scope: scopeFlag as Scope | 'all',
+      homeDir,
+    });
+
+    if (report.agentsDetected.length === 0) {
+      io.out('Nothing to check. Use --agent to specify an agent or pass a path to a project.');
+      return 0;
+    }
+    if (report.score === null || report.band === null) {
+      io.out('Not enough to score. No badge produced.');
+      return 0;
+    }
+
+    const svg = renderBadgeSvg({ score: report.score, band: report.band, theme: themeFlag });
+    const svgResult = await writeOutputFile(outDir, 'setup-doctor-badge.svg', svg, yes);
+    if (!svgResult.ok) {
+      io.err(`setup-doctor badge: ${svgResult.path} ${svgResult.reason}`);
+      return 2;
+    }
+    io.out(`Wrote ${svgResult.path}`);
+    io.out(renderMarkdownSnippet(report.score, report.band));
+
+    if (endpoint) {
+      const endpointJson = JSON.stringify(renderEndpointBadgeJson(report.score, report.band));
+      const jsonResult = await writeOutputFile(outDir, 'setup-doctor-badge.json', endpointJson, yes);
+      if (!jsonResult.ok) {
+        io.err(`setup-doctor badge: ${jsonResult.path} ${jsonResult.reason}`);
+        return 2;
+      }
+      io.out(`Wrote ${jsonResult.path}`);
+      io.out(
+        'Publish this file to a public URL from your own CI, then use:\n' +
+          `https://img.shields.io/endpoint?url=<encoded public URL of ${jsonResult.path}>`,
+      );
+    }
+
+    return 0;
+  } catch (err) {
+    io.err(`setup-doctor badge: internal error: ${(err as Error).message}\nPlease file an issue.`);
     return 4;
   }
 }
@@ -247,6 +385,9 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
 
   if (command === 'doctor') {
     return runDoctorCommand(rest, io, homeDirOverride);
+  }
+  if (command === 'badge') {
+    return runBadgeCommand(rest, io, homeDirOverride);
   }
   if (command === 'rules') {
     return runRulesCommand(io);
