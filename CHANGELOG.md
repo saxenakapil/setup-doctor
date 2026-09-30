@@ -2,6 +2,10 @@
 
 All notable changes are listed here. The format follows Keep a Changelog and the project uses semantic versioning. The rule set has its own version (`rulesVersion`), listed separately below.
 
+## 0.3.1 (2026-09-30)
+
+- **`wrapped`'s default theme is now `technical`** (was `playful`), now that its card design has been rebuilt to an exact spec. `doctor --format html` and `badge` keep `playful` as their default; pass `--theme playful` or `--theme mix` to `wrapped` for the previous look.
+
 ## 0.3.0 (2026-09-30)
 
 - **Technical theme Wrapped card, rebuilt to an exact design spec.** New bespoke SVG renderer (glass stat cards, a persona/activity panel pair, a quartile-leveled activity grid with a streak ring), replacing the technical theme's previous generic layout. Adds a quartile-based activity strip alongside the existing max-relative one (used unchanged by the playful/mix themes), and a cache-hit-rate stat card. See `docs/design/wrapped-technical/` for the frozen design reference.

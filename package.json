@@ -1,6 +1,6 @@
 {
   "name": "setup-doctor",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Score and improve your AI coding agent setup. Local-only, open source.",
   "license": "MIT",
   "author": "Kapil Saxena",

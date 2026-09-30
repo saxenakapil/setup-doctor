@@ -502,7 +502,10 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
       );
       return 0;
     }
-    const themeRaw = typeof flags.theme === 'string' ? flags.theme : (configDefaults.theme ?? 'playful');
+    // wrapped defaults to technical, unlike doctor/badge (still playful):
+    // a deliberate, wrapped-only default set by the user after the
+    // technical card's design rebuild (docs/design/wrapped-technical/).
+    const themeRaw = typeof flags.theme === 'string' ? flags.theme : (configDefaults.theme ?? 'technical');
     if (!isThemeName(themeRaw)) {
       io.err(`Unknown --theme value: ${themeRaw}\nValid values: ${THEME_NAMES.join(', ')}`);
       return 2;

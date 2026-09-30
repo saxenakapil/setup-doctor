@@ -63,7 +63,7 @@ Or install the [Claude Code plugin](https://docs.claude.com/en/docs/claude-code/
 | `--agent claude\|codex\|cursor\|copilot\|all` | doctor, badge, wrapped | Which agent setup to read (default: auto-detect for doctor/badge, `claude` for wrapped) |
 | `--scope project\|global\|all` | doctor, badge | Which locations to check |
 | `--format` | doctor: `terminal\|json\|html`; wrapped: `terminal\|json` (no `html`) | Output format |
-| `--theme playful\|technical\|mix` | doctor --format html, badge, wrapped | Visual theme (default `playful`) |
+| `--theme playful\|technical\|mix` | doctor --format html, badge, wrapped | Visual theme (default `playful` for doctor/badge, `technical` for wrapped) |
 | `--min-severity low\|medium\|high\|critical` | doctor | Hide findings below this level (score is unaffected) |
 | `--ci --fail-under <n>` | doctor | Exit 1 if the score is below `n`, for CI gates |
 | `--ci --compare` | doctor | Appends the score to a local `.setupdoctor-history.jsonl` and exits 1 if it dropped since the last `--ci` run; `--compare` alone (no `--ci`) just prints the delta |

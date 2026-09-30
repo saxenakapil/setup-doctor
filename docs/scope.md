@@ -31,7 +31,7 @@ Target users: developers who use Claude Code daily (primary), plus Codex and Cur
 | Package and CLI name | `setup-doctor` (free on npm; placeholder 0.0.1 published; next release 0.1.0) |
 | License | MIT |
 | Language and runtime | TypeScript (strict), Node 20 or later, ES modules |
-| Default theme | `playful` |
+| Default theme | `playful` (doctor HTML report, badge); `technical` (wrapped, set post-v1 once the technical card's design was rebuilt to spec, see `docs/notes.md`) |
 | Themes shipped in v1 | `playful`, `technical`, `mix` |
 | Badge | Static badge by default; endpoint-style badge JSON with `--endpoint` |
 | Fix mode (`--fix`) | Stretch goal for v1. Build it last (Phase 8). If time runs out it moves to v1.1 |
@@ -133,7 +133,7 @@ Running `setup-doctor` with no command runs `doctor` on the current folder.
 | `--scope project\|global\|all` | doctor | `all` | Which locations to check |
 | `--format terminal\|json\|html` | doctor, wrapped | `terminal` | Output format |
 | `--out <path>` | all | current folder | Where output files are written (a folder) |
-| `--theme playful\|technical\|mix` | html report, card, badge svg | `playful` | Visual theme. Unknown value exits with code 2 and lists valid names |
+| `--theme playful\|technical\|mix` | html report, card, badge svg | `playful` (html report, badge svg); `technical` (card) | Visual theme. Unknown value exits with code 2 and lists valid names |
 | `--min-severity low\|medium\|high\|critical` | doctor | `low` | Hide findings below this level (score is unaffected) |
 | `--period <value>` | wrapped | `30d` | `7d`, `30d`, `ytd`, `all`, or `YYYY-MM-DD:YYYY-MM-DD` |
 | `--tz <IANA zone>` | wrapped | local | Time zone for hour and weekday buckets |
@@ -483,7 +483,7 @@ Period label, four headline numbers (sessions, active days, total tokens, estima
 
 ## 13. Themes
 
-Three themes: `playful` (default), `technical`, `mix`. One shared layout per output; each theme is a token set. Full tokens, layouts and font handling are in `themes.md`. Apply themes to the HTML report, the Wrapped card and the badge SVG. The terminal report and JSON are not themed. The chosen theme is recorded in the JSON output.
+Three themes: `playful` (default for the HTML report and badge SVG), `technical` (default for the Wrapped card), `mix`. One shared layout per output; each theme is a token set. Full tokens, layouts and font handling are in `themes.md`. Apply themes to the HTML report, the Wrapped card and the badge SVG. The terminal report and JSON are not themed. The chosen theme is recorded in the JSON output.
 
 ## 14. Fix mode (stretch goal, Phase 8)
 

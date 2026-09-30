@@ -544,7 +544,7 @@ describe('cli wrapped (deterministic fixture home)', () => {
   it('codex wrapped against a real fixture home: real numbers, the card names Codex not Claude Code, and writes card files', async () => {
     const codexHome = join(__dirname, 'fixtures', 'wrapped-codex', 'home');
     const c = capture();
-    const code = await main(['wrapped', '--agent', 'codex', '--period', 'all', '--tz', 'UTC', '--out', outDir, '--yes'], c.io, codexHome);
+    const code = await main(['wrapped', '--agent', 'codex', '--theme', 'mix', '--period', 'all', '--tz', 'UTC', '--out', outDir, '--yes'], c.io, codexHome);
     expect(code).toBe(0);
     const text = c.out.join('\n');
     expect(text).toContain('Sessions 2');
@@ -588,7 +588,7 @@ describe('cli wrapped (deterministic fixture home)', () => {
   it('copilot wrapped against a real fixture home: real numbers, the card names Copilot not Claude Code, and writes card files', async () => {
     const copilotHome = join(__dirname, 'fixtures', 'wrapped-copilot', 'home');
     const c = capture();
-    const code = await main(['wrapped', '--agent', 'copilot', '--period', 'all', '--tz', 'UTC', '--out', outDir, '--yes'], c.io, copilotHome);
+    const code = await main(['wrapped', '--agent', 'copilot', '--theme', 'mix', '--period', 'all', '--tz', 'UTC', '--out', outDir, '--yes'], c.io, copilotHome);
     expect(code).toBe(0);
     const text = c.out.join('\n');
     expect(text).toContain('Sessions 2');
@@ -663,7 +663,7 @@ describe('cli wrapped (deterministic fixture home)', () => {
   it('--show-projects puts the project name on the card', async () => {
     const c = capture();
     const code = await main(
-      ['wrapped', '--period', 'all', '--tz', 'UTC', '--show-projects', '--out', outDir],
+      ['wrapped', '--period', 'all', '--tz', 'UTC', '--theme', 'mix', '--show-projects', '--out', outDir],
       c.io,
       WRAPPED_HOME,
     );

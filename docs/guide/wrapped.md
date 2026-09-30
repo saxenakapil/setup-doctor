@@ -190,9 +190,9 @@ A short label (`Steady Builder`, `Night Owl`, `Marathoner`, and others) derived 
 ## `--theme`
 
 ```bash
-npx setup-doctor wrapped --theme playful     # default
-npx setup-doctor wrapped --theme technical
+npx setup-doctor wrapped --theme technical   # default
+npx setup-doctor wrapped --theme playful
 npx setup-doctor wrapped --theme mix
 ```
 
-Same three themes as `doctor --format html` and `badge`; see [`docs/themes.md`](../themes.md) for the full design token reference if you want to understand exactly what each one changes.
+Same three themes as `doctor --format html` and `badge` (whose own default stays `playful`); see [`docs/themes.md`](../themes.md) for the full design token reference if you want to understand exactly what each one changes.
