@@ -2,6 +2,11 @@
 
 All notable changes are listed here. The format follows Keep a Changelog and the project uses semantic versioning. The rule set has its own version (`rulesVersion`), listed separately below.
 
+## 0.3.0 (2026-09-30)
+
+- **Technical theme Wrapped card, rebuilt to an exact design spec.** New bespoke SVG renderer (glass stat cards, a persona/activity panel pair, a quartile-leveled activity grid with a streak ring), replacing the technical theme's previous generic layout. Adds a quartile-based activity strip alongside the existing max-relative one (used unchanged by the playful/mix themes), and a cache-hit-rate stat card. See `docs/design/wrapped-technical/` for the frozen design reference.
+- Persona line for Cache Master shortened (`docs/scope.md` section 11.5): "Your cache did the heavy lifting."
+
 ## 0.2.0 (2026-09-29)
 
 - **GitHub Action: PR score-change comment.** A new `docs/examples/pr-comment-workflow.yml` scores a pull request's base and head directly in the same job (a real `git worktree` checkout, not a cached score) and posts or updates a single PR comment with the delta. Also fixed a real bug in the already-shipped score-history CI example: a fixed `actions/cache` key only ever saves once, so history silently stopped growing after its first run.
