@@ -591,9 +591,11 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
       busiestWeekday: report.metrics.busiestWeekday,
       longestStreakDays: report.metrics.longestStreakDays,
       persona: report.persona,
-      activity: report.activity,
+      activity: themeRaw === 'technical' ? report.quartileActivity : report.activity,
       showProjects: cardShowProjects,
       topProjects: cardShowProjects ? report.metrics.topProjects : [],
+      cacheHitRate: report.metrics.cacheHitRate,
+      showCost,
     };
     const theme = getTheme(themeRaw);
 

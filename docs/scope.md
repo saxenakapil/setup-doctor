@@ -427,7 +427,7 @@ An unknown model shows tokens, and its cost reads "n/a" with a footnote. The out
 | --- | --- | --- |
 | Night Owl | 40 percent or more of user records between 22:00 and 04:00 | Most of your messages land after dark. |
 | Marathoner | Longest session over 4 hours | Your longest session ran past 4 hours. |
-| Cache Master | Cache hit rate over 90 percent | Your context cache did the heavy lifting. |
+| Cache Master | Cache hit rate over 90 percent | Your cache did the heavy lifting. |
 | Streak Keeper | Longest streak of 14 days or more | You showed up day after day. |
 | Steady Builder | Default | Steady, consistent use. |
 

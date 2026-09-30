@@ -4,7 +4,9 @@ Log assumptions, deviations and open items here while building. Keep entries sho
 
 ## Assumptions
 
-- (none yet)
+- 2026-09-30: technical theme's Wrapped card (docs/design/wrapped-technical/) implements the fixed 30-day activity window (matching the rest of this project's existing `activity` data, `docs/scope.md` section 11.3), not that spec's own section 10 "35 days, or the last 5 weeks for longer periods" rule, which that same section already flags as "Assumption, confirm." Reusing the existing 30-cell window means one real data source (`WrappedReport.activity`/`quartileActivity`) feeds every theme's card, and 30 days still fills a 5-row Monday-start grid the same way 35 would. Revisit if a 35/5-week grid is specifically requested.
+- 2026-09-30: `docs/design/wrapped-technical/fonts/` (a reference-only folder, never read at runtime) holds this project's own already-licensed JetBrains Mono `.woff2` files rather than the `.ttf` files that folder's own README lists, since there is no network access to fetch the real TTFs and no local font-conversion tool available. The actual shipped renderer and its `@resvg/resvg-js` PNG export already use these same `.woff2` files via `embeddedFontFaceCss()`, so real acceptance verification does not need TTF at all; see `docs/design/wrapped-technical/fonts/NOTE.md`.
+- 2026-09-30: the CLI's pre-existing zero-session early return (`src/cli.ts`, `report.metrics.recordCount === 0`) still short-circuits before any Wrapped card is written, for every theme, unchanged. `renderTechnicalLandscapeCard`/`renderTechnicalPortraitCard` (`src/render/card.ts`) both implement and test the "no sessions" panel from that spec's section 11 directly (`sessions === 0` input), but reaching it through the real `wrapped` command was out of scope here since it would change already-shipped playful/mix behavior too, not just technical's.
 
 ## Open items
 

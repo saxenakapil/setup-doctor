@@ -19,7 +19,7 @@ export function classifyPersona(metrics: WrappedMetrics): Persona {
     return { label: 'Marathoner', line: 'Your longest session ran past 4 hours.' };
   }
   if (metrics.cacheHitRate > 0.9) {
-    return { label: 'Cache Master', line: 'Your context cache did the heavy lifting.' };
+    return { label: 'Cache Master', line: 'Your cache did the heavy lifting.' };
   }
   if (metrics.longestStreakDays >= 14) {
     return { label: 'Streak Keeper', line: 'You showed up day after day.' };

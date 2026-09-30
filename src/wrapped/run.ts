@@ -5,7 +5,7 @@
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { getAdapter } from '../adapters/index.js';
-import { computeMetrics, buildActivityStrip, totalTokens, type ActivityCell, type WrappedMetrics } from './metrics.js';
+import { computeMetrics, buildActivityStrip, buildQuartileActivityStrip, totalTokens, type ActivityCell, type WrappedMetrics } from './metrics.js';
 import { classifyPersona, type Persona } from './persona.js';
 import { localDateKey, parsePeriodFlag, resolvePeriodBounds, resolveTz, type PeriodBounds } from './period.js';
 import type { Agent, Period, SessionRecord } from '../core/types.js';
@@ -40,6 +40,11 @@ export interface WrappedReport {
   metrics: WrappedMetrics;
   persona: Persona;
   activity: ActivityCell[];
+  // Same 30 days, but leveled by quartile of active-day counts instead of
+  // max-relative (docs/design/wrapped-technical/README.md section 10). Only
+  // the technical theme's Wrapped card uses this; every other surface
+  // (terminal, JSON, playful/mix cards) keeps using `activity` above.
+  quartileActivity: ActivityCell[];
   // Present only when `trend: true` was requested. Null when there is no
   // well-defined "previous period" (period 'all', which already covers
   // every record on disk).
@@ -114,6 +119,7 @@ export async function runWrapped(options: WrappedRunOptions): Promise<WrappedRun
   const metrics = computeMetrics(records, tz);
   const persona = classifyPersona(metrics);
   const activity = buildActivityStrip(records, tz, Math.min(bounds.endMs, now.getTime()));
+  const quartileActivity = buildQuartileActivityStrip(records, tz, Math.min(bounds.endMs, now.getTime()));
 
   let trend: TrendComparison | null | undefined;
   if (options.trend) {
@@ -136,5 +142,5 @@ export async function runWrapped(options: WrappedRunOptions): Promise<WrappedRun
     }
   }
 
-  return { ok: true, report: { period, periodLabel: periodLabel(period), tz, metrics, persona, activity, trend } };
+  return { ok: true, report: { period, periodLabel: periodLabel(period), tz, metrics, persona, activity, quartileActivity, trend } };
 }

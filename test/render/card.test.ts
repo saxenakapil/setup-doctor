@@ -80,8 +80,8 @@ describe.each([
   });
 
   it('shrinks the title font-size to fit a long --period range label instead of clipping it (regression)', () => {
-    const shortSvg = render(baseInput('technical'));
-    const longInput = { ...baseInput('technical'), periodLabel: '2020-01-01 to 2026-09-29' };
+    const shortSvg = render(baseInput('mix'));
+    const longInput = { ...baseInput('mix'), periodLabel: '2020-01-01 to 2026-09-29' };
     const longSvg = render(longInput);
     const titleSize = (svg: string) => Number(/font-size="(\d+)" font-weight="800"[^>]*>Your last/.exec(svg)?.[1]);
     const shortSize = titleSize(shortSvg);
@@ -92,14 +92,18 @@ describe.each([
     expect(longSvg).toContain('2020-01-01 to 2026-09-29 with Claude Code');
   });
 
-  it('renders the activity strip only for technical and mix (docs/themes.md section 4)', () => {
+  it('renders the activity strip only for mix (docs/themes.md section 4); technical has its own bespoke grid', () => {
     const playfulSvg = render(baseInput('playful'));
-    const technicalSvg = render(baseInput('technical'));
     const mixSvg = render(baseInput('mix'));
     // Activity cells carry their date in a <title>; count occurrences as a proxy for "strip rendered".
     const countDateTitles = (svg: string) => (svg.match(/<title>2026-01-/g) ?? []).length;
     expect(countDateTitles(playfulSvg)).toBe(0);
-    expect(countDateTitles(technicalSvg)).toBe(30);
     expect(countDateTitles(mixSvg)).toBe(30);
+  });
+
+  it('renders the technical card\'s own quartile activity grid (docs/design/wrapped-technical/)', () => {
+    const svg = render(baseInput('technical'));
+    // 30 activity cells rendered as rounded rects colored from TECH_CARD.gridLevels.
+    expect((svg.match(/#161E27|#12331F|#1D6B3A|#2FA85B|#3DDC84/g) ?? []).length).toBeGreaterThanOrEqual(30);
   });
 });

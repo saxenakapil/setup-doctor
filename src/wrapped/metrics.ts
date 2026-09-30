@@ -83,6 +83,49 @@ export function buildActivityStrip(records: SessionRecord[], tz: string, endMs: 
   return cells;
 }
 
+/**
+ * Same shape as buildActivityStrip, but levels are quartile-based (the
+ * technical Wrapped card's own design spec, docs/design/wrapped-technical/
+ * section 10) rather than max-relative: level 1/2/3 are up to the 25th/
+ * 50th/75th percentile of *active* days' counts, level 4 is above the
+ * 75th. Deliberately separate from buildActivityStrip rather than a shared
+ * "strategy" parameter, so playful/mix's existing max-relative look (used
+ * elsewhere) is never at risk of changing.
+ */
+export function buildQuartileActivityStrip(records: SessionRecord[], tz: string, endMs: number, days = 30): ActivityCell[] {
+  const counts = new Map<string, number>();
+  for (const r of records) {
+    const key = localDateKey(new Date(r.ts), tz);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const activeCounts = [...counts.values()].sort((a, b) => a - b);
+  const quartile = (p: number): number => {
+    if (activeCounts.length === 0) return 0;
+    const idx = Math.min(activeCounts.length - 1, Math.floor(p * activeCounts.length));
+    return activeCounts[idx] as number;
+  };
+  const q25 = quartile(0.25);
+  const q50 = quartile(0.5);
+  const q75 = quartile(0.75);
+
+  const levelFor = (count: number): 0 | 1 | 2 | 3 | 4 => {
+    if (count === 0) return 0;
+    if (count <= q25) return 1;
+    if (count <= q50) return 2;
+    if (count <= q75) return 3;
+    return 4;
+  };
+
+  const cells: ActivityCell[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const day = new Date(endMs - i * 24 * 60 * 60 * 1000);
+    const key = localDateKey(day, tz);
+    const count = counts.get(key) ?? 0;
+    cells.push({ date: key, level: levelFor(count) });
+  }
+  return cells;
+}
+
 function longestConsecutiveStreak(sortedDateKeys: string[]): number {
   if (sortedDateKeys.length === 0) return 0;
   let longest = 1;

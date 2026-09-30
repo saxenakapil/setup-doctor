@@ -83,7 +83,7 @@ describe('classifyPersona: boundaries, first match wins', () => {
     expect(classifyPersona(baseMetrics({ longestSessionMs: FOUR_HOURS + 1 })).line).toBe(
       'Your longest session ran past 4 hours.',
     );
-    expect(classifyPersona(baseMetrics({ cacheHitRate: 0.95 })).line).toBe('Your context cache did the heavy lifting.');
+    expect(classifyPersona(baseMetrics({ cacheHitRate: 0.95 })).line).toBe('Your cache did the heavy lifting.');
     expect(classifyPersona(baseMetrics({ longestStreakDays: 14 })).line).toBe('You showed up day after day.');
     expect(classifyPersona(baseMetrics()).line).toBe('Steady, consistent use.');
   });
