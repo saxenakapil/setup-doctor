@@ -2,6 +2,10 @@
 
 All notable changes are listed here. The format follows Keep a Changelog and the project uses semantic versioning. The rule set has its own version (`rulesVersion`), listed separately below.
 
+## 0.3.2 (2026-10-02)
+
+- Adds `mcpName` to `package.json` (`io.github.saxenakapil/setup-doctor`), the ownership-verification field the official MCP Registry checks for npm packages. No behavior change; this is metadata only, for the registry submission.
+
 ## 0.3.1 (2026-09-30)
 
 - **`wrapped`'s default theme is now `technical`** (was `playful`), now that its card design has been rebuilt to an exact spec. `doctor --format html` and `badge` keep `playful` as their default; pass `--theme playful` or `--theme mix` to `wrapped` for the previous look.
