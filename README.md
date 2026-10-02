@@ -18,7 +18,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 - **Wrapped**: summarizes your local session logs (Claude Code, Codex, GitHub Copilot CLI or Cursor) (sessions, active days, tokens, an API-equivalent cost estimate, streaks, busiest hour, a persona label) into a shareable card, in three visual themes and two sizes, with optional PNG export.
 - **Badge**: a static or live (shields.io endpoint) README badge showing your current score.
 - **HTML report**: a single self-contained, themed report file. No network requests, strict Content-Security-Policy, everything inlined.
-- **MCP server mode**: `npx setup-doctor mcp` exposes Doctor and Wrapped as read-only tools over stdio for Claude Desktop and other MCP clients; see [`docs/guide/mcp-server.md`](docs/guide/mcp-server.md).
+- **MCP server mode**: `npx setup-doctor mcp` exposes Doctor and Wrapped as read-only tools over stdio for Claude Desktop and other MCP clients; see [`docs/guide/mcp-server.md`](docs/guide/mcp-server.md). Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.saxenakapil/setup-doctor`.
 
 ## Supported agents
 
