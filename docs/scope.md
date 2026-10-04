@@ -37,7 +37,7 @@ Target users: developers who use Claude Code daily (primary), plus Codex and Cur
 | Fix mode (`--fix`) | Stretch goal for v1. Build it last (Phase 8). If time runs out it moves to v1.1 |
 | Agents | Claude Code (full support), Codex and Cursor (Doctor checks; Wrapped experimental, to be verified in Phase 6) |
 | Network | None at runtime, ever |
-| Rule count | 26 rules in 6 categories (see `rules.md`) |
+| Rule count | 26 rules in 6 categories at v1 (see `rules.md`); 30 in the current release, with post-v1 rules logged in `notes.md` |
 | Non-developer Wrapped (chat export) | Out of scope for v1 |
 
 ## 3. Hard constraints
@@ -369,7 +369,7 @@ Every finding has the fields in the `Finding` type. Findings are sorted by sever
 
 ### 10.7 The rules
 
-All 26 rules are specified in `rules.md`. Implement them exactly as written there.
+All 26 v1 rules are specified in `rules.md`. Implement them exactly as written there. Rules added after v1 are logged in `notes.md`.
 
 ## 11. Wrapped engine
 

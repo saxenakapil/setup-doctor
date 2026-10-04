@@ -1,6 +1,6 @@
 # Setup Doctor: Rules (v1, rulesVersion 1.0.0)
 
-Every Doctor rule, specified for implementation and tests. `scope.md` covers scoring, categories and the data model; this file covers what each rule checks. If the two conflict, this file wins for rule behavior.
+Every Doctor v1 rule, specified for implementation and tests. This file covers the 26 rules in the v1 scope; the current release has 30. Rules added after v1 (SET-03 to SET-05, MCP-06) are specified in `notes.md`. `scope.md` covers scoring, categories and the data model; this file covers what each rule checks. If the two conflict, this file wins for rule behavior.
 
 ## Conventions
 
