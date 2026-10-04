@@ -24,6 +24,33 @@ function baseMetrics(overrides: Partial<WrappedMetrics> = {}): WrappedMetrics {
 
 const PERSONA = { label: 'Steady Builder' as const, line: 'Steady, consistent use.' };
 
+describe('renderWrappedTerminalReport cost projection', () => {
+  const base = {
+    periodLabel: '30 days',
+    metrics: baseMetrics(),
+    persona: PERSONA,
+    showProjects: false,
+    priceTableAsOf: '2026-09-29',
+  };
+
+  it('shows the monthly projection beside the cost when one is available', () => {
+    const text = renderWrappedTerminalReport({ ...base, showCost: true, forecastMonthlyUsd: 60 });
+    expect(text).toContain('Est. cost* $1.23 (about $60.00/month at this rate)');
+  });
+
+  it('omits the projection when it is null (unknown cost or too short a period)', () => {
+    const text = renderWrappedTerminalReport({ ...base, showCost: true, forecastMonthlyUsd: null });
+    expect(text).toContain('Est. cost* $1.23');
+    expect(text).not.toContain('/month');
+  });
+
+  it('never shows a projection when cost is hidden with --no-cost', () => {
+    const text = renderWrappedTerminalReport({ ...base, showCost: false, forecastMonthlyUsd: 60 });
+    expect(text).not.toContain('/month');
+    expect(text).not.toContain('Est. cost*');
+  });
+});
+
 describe('renderWrappedTerminalReport', () => {
   it('reports "no sessions in this period" when recordCount is 0', () => {
     const text = renderWrappedTerminalReport({

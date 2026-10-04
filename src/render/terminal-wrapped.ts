@@ -25,6 +25,8 @@ export interface WrappedTerminalInput {
   showCost: boolean;
   showProjects: boolean;
   priceTableAsOf: string;
+  /** Shown beside the cost when set. Null or absent means no projection line. */
+  forecastMonthlyUsd?: number | null;
   /** Defaults to no color; pass true only after checking shouldUseColor. */
   useColor?: boolean;
   // Present only when --trend was passed. Null means no well-defined
@@ -72,7 +74,11 @@ export function renderWrappedTerminalReport(input: WrappedTerminalInput): string
     `Active days ${formatNumber(metrics.activeDays)}`,
     `Tokens ${formatNumber(totalTokens(metrics))}`,
   ];
-  if (input.showCost) headline.push(`Est. cost* ${formatCost(metrics.cost.totalUsd)}`);
+  if (input.showCost) {
+    const forecast = input.forecastMonthlyUsd;
+    const projection = forecast === null || forecast === undefined ? '' : ` (about ${formatCost(forecast)}/month at this rate)`;
+    headline.push(`Est. cost* ${formatCost(metrics.cost.totalUsd)}${projection}`);
+  }
   lines.push(headline.join('   '));
 
   if (input.trend) {

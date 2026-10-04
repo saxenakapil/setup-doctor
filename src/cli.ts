@@ -576,6 +576,7 @@ async function runWrappedCommand(rest: string[], io: Io, homeDir?: string): Prom
           showCost,
           showProjects: true, // already filtered into localProjects above
           priceTableAsOf: PRICE_TABLE_AS_OF,
+          forecastMonthlyUsd: report.forecastMonthlyUsd,
           useColor: computeUseColor(flags, false),
           trend: trendForOutput,
         }),

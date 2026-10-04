@@ -56,3 +56,7 @@ export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 // CLAUDE.md re-triggers the exact finding fix mode just fixed on the next run.
 export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.venv', 'vendor', '.setupdoctor-backup']);
 export const SECRET_ENTROPY_THRESHOLD = 3.5;
+// A monthly projection from fewer elapsed days than this is mostly noise
+// (one busy afternoon extrapolates to a huge number), so the report omits it.
+export const FORECAST_MIN_ELAPSED_DAYS = 3;
+export const FORECAST_DAYS_PER_MONTH = 30;

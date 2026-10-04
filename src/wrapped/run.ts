@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { getAdapter } from '../adapters/index.js';
 import { computeMetrics, buildActivityStrip, buildQuartileActivityStrip, totalTokens, type ActivityCell, type WrappedMetrics } from './metrics.js';
 import { classifyPersona, type Persona } from './persona.js';
+import { elapsedDaysInBounds, projectMonthlyCost } from './forecast.js';
 import { localDateKey, parsePeriodFlag, resolvePeriodBounds, resolveTz, type PeriodBounds } from './period.js';
 import type { Agent, Period, SessionRecord } from '../core/types.js';
 
@@ -40,6 +41,9 @@ export interface WrappedReport {
   metrics: WrappedMetrics;
   persona: Persona;
   activity: ActivityCell[];
+  // Projected monthly cost at the period's average daily rate. Null when the
+  // cost is unknown or the period is too short (see forecast.ts).
+  forecastMonthlyUsd: number | null;
   // Same 30 days, but leveled by quartile of active-day counts instead of
   // max-relative (docs/design/wrapped-technical/README.md section 10). Only
   // the technical theme's Wrapped card uses this; every other surface
@@ -142,5 +146,7 @@ export async function runWrapped(options: WrappedRunOptions): Promise<WrappedRun
     }
   }
 
-  return { ok: true, report: { period, periodLabel: periodLabel(period), tz, metrics, persona, activity, quartileActivity, trend } };
+  const forecastMonthlyUsd = projectMonthlyCost(metrics.cost.totalUsd, bounds ? elapsedDaysInBounds(bounds, now.getTime()) : null);
+
+  return { ok: true, report: { period, periodLabel: periodLabel(period), tz, metrics, persona, activity, quartileActivity, forecastMonthlyUsd, trend } };
 }
