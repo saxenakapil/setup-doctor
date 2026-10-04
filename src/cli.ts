@@ -1,6 +1,8 @@
 import { resolve } from 'node:path';
 import { ConfigParseError, loadConfigFile, mergeConfig } from './core/config.js';
 import { appendHistoryEntry, compareToLast, formatComparisonLine, readHistory, type ScoreComparison } from './core/history.js';
+import { explainScoreChange, formatScoreChange, type ReportSnapshot } from './core/score-diff.js';
+import { readTextFileSafe } from './adapters/fs-utils.js';
 import { makeDiscoveryContext, runDoctor } from './core/runner.js';
 import { writeOutputFile } from './core/output.js';
 import { applyFixes, backupFiles, planFixes } from './core/fix.js';
@@ -32,7 +34,7 @@ const defaultIo: Io = {
   err: (text) => process.stderr.write(text + '\n'),
 };
 
-const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain', 'mcp']);
+const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain', 'diff', 'mcp']);
 const FORMATS = new Set(['terminal', 'json', 'html']);
 const AGENT_VALUES = new Set(['claude', 'codex', 'cursor', 'copilot', 'all']);
 const AGENT_LABELS: Record<string, string> = {
@@ -53,6 +55,7 @@ Usage:
   setup-doctor badge               Write README badge files
   setup-doctor rules               List all rules
   setup-doctor explain <RULE_ID>   Explain one rule
+  setup-doctor diff <before.json> <after.json>   Explain how the score changed between two saved reports (doctor --format json)
   setup-doctor mcp                 Start an MCP server (doctor and wrapped as read-only tools, stdio)
 
 Options:
@@ -665,6 +668,52 @@ async function runRulesCommand(rest: string[], io: Io): Promise<number> {
   return 0;
 }
 
+function parseReportSnapshot(text: string): ReportSnapshot | string {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return 'not valid JSON';
+  }
+  if (!value || typeof value !== 'object') return 'not a JSON object';
+  const report = value as Record<string, unknown>;
+  if (typeof report.rulesVersion !== 'string') return 'missing rulesVersion (is this a doctor --format json report?)';
+  if (report.score !== null && typeof report.score !== 'number') return 'score must be a number or null';
+  if (!Array.isArray(report.findings)) return 'missing findings array';
+  return {
+    rulesVersion: report.rulesVersion,
+    score: report.score as number | null,
+    band: typeof report.band === 'string' ? report.band : null,
+    findings: report.findings as ReportSnapshot['findings'],
+  };
+}
+
+async function loadReportSnapshot(path: string): Promise<ReportSnapshot | string> {
+  const read = await readTextFileSafe(resolve(path));
+  if (!read.ok) return read.reason;
+  return parseReportSnapshot(read.text);
+}
+
+async function runDiffCommand(rest: string[], io: Io): Promise<number> {
+  const [beforePath, afterPath] = rest;
+  if (!beforePath || !afterPath) {
+    io.err('Usage: setup-doctor diff <before.json> <after.json>\nCreate each file with: setup-doctor doctor --format json > report.json');
+    return 2;
+  }
+  const before = await loadReportSnapshot(beforePath);
+  if (typeof before === 'string') {
+    io.err(`Cannot read ${beforePath}: ${before}`);
+    return 2;
+  }
+  const after = await loadReportSnapshot(afterPath);
+  if (typeof after === 'string') {
+    io.err(`Cannot read ${afterPath}: ${after}`);
+    return 2;
+  }
+  io.out(formatScoreChange(explainScoreChange(before, after)));
+  return 0;
+}
+
 async function runExplainCommand(rest: string[], io: Io): Promise<number> {
   const ruleId = rest[0];
   if (!ruleId) {
@@ -738,6 +787,9 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
   }
   if (command === 'explain') {
     return runExplainCommand(rest, io);
+  }
+  if (command === 'diff') {
+    return runDiffCommand(rest, io);
   }
   if (command === 'mcp') {
     const { runMcpServer } = await import('./mcp/server.js');

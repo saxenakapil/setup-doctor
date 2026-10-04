@@ -4,6 +4,7 @@ All notable changes are listed here. The format follows Keep a Changelog and the
 
 ## Unreleased
 
+- **`setup-doctor diff <before.json> <after.json>`**: explains how the score moved between two saved `doctor --format json` reports, listing new findings, resolved findings, and the score change with its band transition. A finding is matched by rule, file and message, so a line shift in an unchanged file does not appear as a change. Warns when the rule set changed between the two reports.
 - **Generic instruction files**: `.windsurfrules` and `.clinerules` at the project root are now audited with the instruction rules (INS-01 to INS-08 and FRS-01), auto-detected as "Other agent". Skills, MCP, settings and Wrapped are not modeled for these agents. `AGENTS.md` stays with the Codex adapter, so it is never reported twice.
 - **New rule MCP-06** (rules 1.2.0): flags an MCP server whose launcher (`npx`, `uvx`, `bunx`, `pipx`) runs a package without an exact version, such as `npx pkg` or `npx pkg@latest`. The Claude plugin directory reviewer raised the same risk for our own skills. Medium severity, not auto-fixable. See `docs/notes.md`.
 

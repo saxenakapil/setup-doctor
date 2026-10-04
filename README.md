@@ -44,6 +44,7 @@ npx setup-doctor badge                  # write a README badge
 npx setup-doctor wrapped --period 30d   # usage summary + shareable card
 npx setup-doctor rules                  # list all 30 rules
 npx setup-doctor explain INS-02         # explain what a rule checks and how to fix it
+npx setup-doctor diff before.json after.json   # explain how the score changed between two saved reports
 npx setup-doctor mcp                    # start an MCP server (doctor + wrapped as read-only tools)
 ```
 
