@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.saxenakapil/setup-doctor",
   "description": "Score and improve your AI coding agent setup. Local-only, open source.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "repository": {
     "url": "https://github.com/saxenakapil/setup-doctor",
     "source": "github"
@@ -12,7 +12,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "setup-doctor",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "transport": {
         "type": "stdio"
       },
