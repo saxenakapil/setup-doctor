@@ -2,7 +2,7 @@
 
 All notable changes are listed here. The format follows Keep a Changelog and the project uses semantic versioning. The rule set has its own version (`rulesVersion`), listed separately below.
 
-## Unreleased
+## 0.3.3 (2026-10-04)
 
 - **Flags before the command work.** `setup-doctor --ci --fail-under 75` and `setup-doctor --format json` now run the default audit, as the documentation shows. Previously they were rejected with "Unknown option". Unknown flags are still rejected.
 - **Clearer `--help`:** options are grouped by command, and the internal references to the project plan are gone.

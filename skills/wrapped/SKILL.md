@@ -10,7 +10,7 @@ Run the Setup Doctor CLI to build a usage summary and card from local logs. Noth
 ## Steps
 
 1. Ask which period the user wants if they did not say. Default to 30 days.
-2. Run `npx setup-doctor@0.3.1 wrapped --period 30d` (adjust `--period` to `7d`, `ytd`, `all`, or a `YYYY-MM-DD:YYYY-MM-DD` range).
+2. Run `npx setup-doctor@0.3.3 wrapped --period 30d` (adjust `--period` to `7d`, `ytd`, `all`, or a `YYYY-MM-DD:YYYY-MM-DD` range).
 3. Report the headline numbers and the persona label, then tell the user where the card file was written.
 4. Mention that cost is an API-equivalent estimate, not their bill.
 

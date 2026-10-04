@@ -1,6 +1,6 @@
 {
   "name": "setup-doctor",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "mcpName": "io.github.saxenakapil/setup-doctor",
   "description": "Score and improve your AI coding agent setup. Local-only, open source.",
   "license": "MIT",
