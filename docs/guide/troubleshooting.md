@@ -1,62 +1,103 @@
 # Troubleshooting
 
+## "Unknown option" when a flag comes first
+
+```
+$ npx setup-doctor --fix --dry-run
+Unknown option: --fix
+Run setup-doctor --help for usage.
+```
+
+When the first argument is a flag, the command is not recognized. Name the command explicitly:
+
+```bash
+npx setup-doctor doctor --fix --dry-run
+npx setup-doctor doctor --ci --fail-under 75
+```
+
+Every example in these guides uses this form.
+
 ## "Nothing to check"
 
 ```
-$ npx setup-doctor
 Nothing to check. Use --agent to specify an agent or pass a path to a project.
 ```
 
-This means no supported agent was detected, at either project or global scope. Check:
+No supported agent configuration was found at project or global scope. Check the following:
 
-- You are running the command from (or pointing `--agent`'s path argument at) the right directory.
-- The agent you expect is actually configured here: for Claude Code, at minimum a `CLAUDE.md` file, a `.claude/` directory, or `.mcp.json`; see [`agents.md`](agents.md) for the full per-agent list of what counts as "detected."
-- You did not accidentally restrict `--scope` to `project` when your setup is global-only, or vice versa; the default, `--scope all`, checks both.
+- Run the command from the project directory, or pass the directory as an argument: `npx setup-doctor doctor /path/to/project`.
+- The agent's configuration exists. For Claude Code, that means at least one of `CLAUDE.md`, a `.claude/` directory or `.mcp.json`. The [agents](agents.md) page lists what each agent needs.
+- `--scope` matches where your configuration lives. The default `all` checks both project and global locations.
 
-## The score seems wrong, or lower/higher than I expected
+## The score is lower or higher than expected
 
-Start with `--format json` and read the `categories` array: each entry's `deductions` and `fraction` show exactly where points were lost, before any rounding. A few things that surprise people:
+Start with the JSON output. The `categories` array shows the deductions for each category before rounding:
 
-- **`n/a` categories are excluded, not zeroed.** If `Plugins` shows `n/a`, it is not counted against you; the remaining categories' weights are renormalized to fill the full 100 points. This is by design (Codex and Cursor genuinely have no plugin concept), not a bug.
-- **A single critical finding caps the whole score at 74**, regardless of how good everything else is. If your score looks stuck below 75 despite few findings, look specifically for a `CRIT` one.
-- **`(possible)` findings only ever cost half of what a certain finding of the same severity would.** They also require at least 14 days of session log coverage to appear at all; with less history, the rule stays silent rather than guessing from thin data.
-- **`--min-severity` never changes the score**, only what is printed. If you filtered findings and the number on screen does not match what you remember, that is expected; drop the flag to see everything again.
-- **A `.setupdoctorrc` in the project root is applied automatically.** If a rule you expect to see is missing, check for one; `npx setup-doctor rules` shows `ENABLED: no` for anything it disables.
+```bash
+npx setup-doctor doctor --format json | less
+```
 
-## A specific finding seems wrong, or I don't understand it
+Common causes:
 
-Run `npx setup-doctor explain <RULE_ID>` for the rule's full reasoning, not just the one-line summary shown in a report:
+- **A category shows `n/a`.** It is excluded from the score and the remaining weights are scaled up. It is not counted as a failure.
+- **A critical finding caps the score at 74.** If the score stays below 75 with few findings, look for a `CRIT` finding.
+- **A `(possible)` finding costs half as much as a certain finding of the same severity.** Possible findings also need at least 14 days of session logs.
+- **`--min-severity` does not change the score.** It only changes which findings are shown.
+- **A `.setupdoctorrc` file applies automatically.** `npx setup-doctor rules` shows which rules are disabled.
+
+## A finding seems wrong
+
+Read the full explanation for the rule:
 
 ```bash
 npx setup-doctor explain INS-06
 ```
 
-If a rule genuinely does not apply to how you work (for example, a stale-reference check flagging a path that is intentionally generated later in your build), either add an inline `<!-- doctor-ignore RULE-ID -->` comment to just that file, or disable it project-wide in [`.setupdoctorrc`](config.md): do not treat a mismatch as something to just ignore silently, since either mechanism keeps the suppression visible in every future report rather than hiding it.
+If the rule does not apply to your project, suppress it. Add a comment to the specific file:
 
-## Files show up as "skipped"
+```markdown
+<!-- doctor-ignore INS-06 -->
+```
 
-The terminal summary line and the JSON report's `skipped` array list any file that existed but could not be read, along with why (a permissions error, for example). `setup-doctor` never crashes on unreadable input; it records the skip and continues rather than failing the whole run. If a file you expect to be audited keeps showing up here, check its permissions.
+Or disable the rule for the project in [`.setupdoctorrc`](config.md). Either way the suppression remains visible in the report.
 
-## PNG export says it needs an optional package
+## Files appear as "skipped"
+
+The `skipped` array in JSON output, and the summary in the terminal, lists files that exist but could not be read, with the reason. The command continues past them. Check the file's permissions.
+
+## Configuration file errors
+
+```
+Invalid JSON in /path/to/project/.setupdoctorrc: ...
+```
+
+The command exits with code 2. Fix the JSON syntax. An unknown key only produces a warning. See [configuration](config.md).
+
+To check which configuration file is being used, pass it explicitly with `--config`:
+
+```bash
+npx setup-doctor doctor --config ./.setupdoctorrc
+```
+
+## PNG export needs an optional package
 
 ```
 PNG needs the optional @resvg/resvg-js package (npm install @resvg/resvg-js). SVG was written.
 ```
 
-`wrapped` always writes both SVG files regardless. PNG additionally needs the optional native `@resvg/resvg-js` dependency; install it if you need PNG specifically (for a platform that only accepts raster images, for example):
+`wrapped` always writes SVG cards. PNG export additionally needs the optional `@resvg/resvg-js` package:
 
 ```bash
 npm install @resvg/resvg-js
 ```
 
-## A secret ended up in a report, or I'm worried one might
+## Reports and secrets
 
-`setup-doctor` never prints a secret-like value it finds, only `[REDACTED]`, the rule ID, and the file/line it was found at. If you are about to share a **local** report file (the HTML report or JSON output, as opposed to the badge or the Wrapped card), read the reminder printed in its own footer first: local reports can still contain real file paths from your project, which the badge and the Wrapped card never do.
+Secret values are never printed. Findings show the rule, the file, the line and `[REDACTED]`.
 
-## I'm not sure which config file setup-doctor is actually reading
-
-Every command that respects `.setupdoctorrc` supports `--config <path>` to point at a specific file explicitly, sidestepping any ambiguity about which project root it would otherwise look in. See [`config.md`](config.md).
+Local reports, meaning HTML and JSON files, can contain file paths from your project. The HTML report reminds you of this in its footer. Review a report before you share it. The badge and the Wrapped card never contain file paths.
 
 ## Something else
 
-Check [`docs/notes.md`](../notes.md): it is the running log of every assumption, deviation from the original spec, and real bug found and fixed while building this tool, including exactly what was and was not verified against a real install for each supported agent. If your question is not answered there, [open an issue](https://github.com/saxenakapil/setup-doctor/issues).
+- [Decision log](../notes.md) records assumptions, deviations and fixes, including what was verified against real installs of each agent.
+- [Open an issue](https://github.com/saxenakapil/setup-doctor/issues) for anything not covered here.

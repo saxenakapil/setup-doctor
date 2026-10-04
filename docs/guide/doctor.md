@@ -1,153 +1,159 @@
-# `doctor`: the audit command
+# doctor
+
+`doctor` audits your agent configuration, scores it from 0 to 100, and prints every finding with a fix. It is the default command.
 
 ```bash
-npx setup-doctor                # same as: npx setup-doctor doctor
-npx setup-doctor doctor [path]  # audit a specific project directory instead of the current one
+npx setup-doctor                 # same as: npx setup-doctor doctor
+npx setup-doctor doctor [path]   # audit a specific directory
 ```
 
-Runs 30 rules across 6 categories (instructions, skills, MCP servers, plugins, settings/hooks, freshness) against your agent's configuration, scores the result, and prints every finding with a specific fix. Read-only unless you pass `--fix` (see [`fix-mode.md`](fix-mode.md)).
+It runs 30 rules across six categories: instructions, skills, MCP servers, plugins, settings and hooks, and freshness. It is read-only unless you pass `--fix`. See [fix mode](fix-mode.md).
 
-## `--agent`: which agent to read
+## Options
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `--agent <name>` | auto-detect | `claude`, `codex`, `cursor`, `copilot` or `all`. |
+| `--scope <scope>` | `all` | `project`, `global` or `all`. |
+| `--format <format>` | `terminal` | `terminal`, `json` or `html`. |
+| `--out <dir>` | none | Output directory. Required for `--format html`. Optional for `--format json`. |
+| `--yes` | off | Overwrite existing output files without asking. |
+| `--theme <name>` | `playful` | `playful`, `technical` or `mix`. Applies to `--format html`. |
+| `--min-severity <level>` | `low` | Hide findings below `low`, `medium`, `high` or `critical`. The score is not affected. |
+| `--ci` | off | No prompts and no color. Stable output for pipelines. |
+| `--fail-under <n>` | none | With `--ci`, exit 1 if the score is below `n`. |
+| `--compare` | off | Print the score change since the last `--ci` run. With `--ci`, exit 1 on a drop. |
+| `--config <path>` | `<path>/.setupdoctorrc` | Use a specific configuration file. See [configuration](config.md). |
+| `--no-color` | off | Disable color. Color is also off for `--ci`, when `NO_COLOR` is set, and for non-TTY output. |
+| `--fix` | off | Propose safe, mechanical fixes. See [fix mode](fix-mode.md). |
+| `--dry-run` | off | With `--fix`, show the diffs and change nothing. |
+| `--allow-dirty` | off | With `--fix`, allow edits to project files when the project may have uncommitted changes. |
+
+Run `setup-doctor --help` for the same list in your terminal.
+
+## Scope and agents
+
+By default, all detected agents and both scopes are checked.
+
+- `--scope project` checks only files in the repository, such as `CLAUDE.md`, `.mcp.json` and `.claude/skills`.
+- `--scope global` checks only per-user configuration, such as `~/.claude/settings.json`.
+- `--agent claude` checks only Claude Code. When a project has only one agent's files, `--agent all` and `--agent claude` produce the same result.
+
+For a repository's own health (for a badge, for example), use `--scope project`. The result is then independent of your personal machine's settings.
+
+A file that two agents share, such as `.mcp.json`, is scored once. The report notes which other agent it also affects. See [agents](agents.md).
+
+## Output formats
+
+### Terminal
+
+The default. Shown in [getting started](getting-started.md).
+
+### JSON
+
+`--format json` writes the complete report to stdout, or to a file with `--out`:
 
 ```bash
-npx setup-doctor --agent claude
-npx setup-doctor --agent copilot
-npx setup-doctor --agent codex
-npx setup-doctor --agent cursor
-npx setup-doctor --agent all      # default: every agent detected in this project
+npx setup-doctor --format json > report.json
 ```
 
-Default is auto-detection across every supported agent. If your project only has Claude Code set up, `--agent all` and `--agent claude` give the same result; the flag matters once a project has more than one agent's files in it. See [`agents.md`](agents.md) for exactly what each agent supports, and how a file two agents share (like `.mcp.json`) is handled.
+Shape:
 
-## `--scope`: project vs. global
+```json
+{
+  "schemaVersion": 1,
+  "toolVersion": "0.3.2",
+  "rulesVersion": "1.2.0",
+  "theme": "playful",
+  "agentsDetected": ["claude"],
+  "score": 85,
+  "band": "Good",
+  "capped": false,
+  "categories": [
+    { "category": "instructions", "weight": 30, "applicable": true, "deductions": 1, "fraction": 0.967 }
+  ],
+  "overheadTokens": 0,
+  "findings": [],
+  "suppressed": [],
+  "skipped": [],
+  "warnings": []
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `score`, `band` | The overall result. `score` is `null` when too few checks apply. |
+| `capped` | `true` when a critical finding limited the score. |
+| `categories` | Per-category weight, deductions and fraction. `applicable: false` means excluded from the score. |
+| `findings` | One object per finding. Each has `ruleId`, `category`, `severity`, `message`, `why`, `fix`, and `file` and `line` when relevant. |
+| `suppressed` | Findings excluded from the score by `disabledRules` or an inline `doctor-ignore` comment. |
+| `skipped` | Files that exist but could not be read, with the reason. |
+| `warnings` | Non-fatal problems, such as unknown configuration keys. |
+| `compare` | Present only with `--compare`. `null` when there is no previous run. |
+
+### HTML
 
 ```bash
-npx setup-doctor --scope project   # only this repo's files (CLAUDE.md, .mcp.json, .claude/skills, ...)
-npx setup-doctor --scope global    # only your per-user config (~/.claude/settings.json, ...)
-npx setup-doctor --scope all       # default: both
+npx setup-doctor --format html --out ./report --theme technical
 ```
 
-Global-scope findings are about settings that apply to every project on your machine, not just this one. If you are auditing a specific repo's own health (for a README badge, for example), `--scope project` gives you a result that is not affected by your personal machine's global settings.
+Writes one self-contained HTML file with styles and fonts inlined. It makes no network requests and uses a strict Content-Security-Policy. The report contains file paths from your project, so review it before sharing it publicly.
 
-## `--min-severity`: hide findings, keep the real score
+If the output file exists, the command refuses to overwrite it:
+
+```
+setup-doctor doctor: ./report/setup-doctor-report.html already exists; pass --yes to overwrite
+```
+
+Add `--yes` to overwrite.
+
+## Filtering with `--min-severity`
 
 ```bash
 npx setup-doctor --min-severity high
 ```
 
-```
-Setup Doctor  score 72/100  (Needs work)   rules v1.0.0
+This hides lower-severity findings from the output. The score does not change, so filtering cannot make a project look healthier than it is. The summary counts only the findings shown.
 
-Instruction files  20/30   Skills  22/25   MCP  8/15   Plugins  n/a   Settings  5/10   Freshness  10/10
+To change the score, fix the finding, disable the rule in [configuration](config.md), or add an inline `doctor-ignore` comment.
 
-Always-loaded context: about 40 tokens
-
-CRIT  INS-08  Secret-like value in CLAUDE.md:5 ([REDACTED])
-      Fix: Remove the value, rotate the credential, and read it from an environment variable instead.
-HIGH  MCP-01  MCP server notion uses command notion-mcp-server which was not found on PATH
-      Fix: Fix the config syntax, install the command, or remove the server entry.
-HIGH  SET-01  Permission rule Bash(curl:*) in .claude/settings.json allows unrestricted or risky commands
-      Fix: Replace it with narrow rules such as Bash(npm test:*), and keep dangerous commands behind a prompt.
-
-3 findings, 1 suppressed
-```
-
-Important: **the score does not change.** `--min-severity` only changes what is printed, so you cannot use it to make your project look healthier than it is. If you want to actually change the score, fix the finding, disable the rule in [`.setupdoctorrc`](config.md), or use an inline suppression comment.
-
-## `--format`: terminal, JSON, or HTML
-
-```bash
-npx setup-doctor --format terminal   # default, shown above
-npx setup-doctor --format json
-npx setup-doctor --format html --out ./report --theme technical
-```
-
-`--format json` prints the full machine-readable report to stdout (or writes it with `--out`), for feeding into your own tooling. Shape:
-
-```json
-{
-  "schemaVersion": 1,
-  "toolVersion": "0.1.0",
-  "rulesVersion": "1.0.0",
-  "score": 71,
-  "band": "Needs work",
-  "capped": false,
-  "categories": [
-    { "category": "instructions", "weight": 30, "applicable": true, "deductions": 10, "fraction": 0.667 }
-  ],
-  "findings": [ /* one object per finding, same fields you see in the terminal, plus ruleId, category, severity */ ],
-  "suppressed": [ /* findings a rule disabled in .setupdoctorrc or an inline comment kept out of the score */ ],
-  "skipped": [ /* files that existed but could not be read, and why */ ],
-  "warnings": [],
-  "compare": null /* only present with --compare; null with no prior history, otherwise { previous, currentScore, delta, regressed, rulesVersionChanged } */
-}
-```
-
-`--format html --out <dir>` writes a single self-contained HTML file: everything inlined (styles, fonts, a tiny bit of JS for the severity filter), no network requests, a strict Content-Security-Policy. Pass `--theme playful|technical|mix` to match your README's style. It reminds you in its own footer that, unlike the badge, it can contain real file paths from your project; check before sharing it publicly.
-
-## `--ci` and `--fail-under`: gate a pull request
+## Gating pull requests
 
 ```bash
 npx setup-doctor --ci --fail-under 75
 ```
 
-`--ci` disables color and any interactive behavior, for stable output in a pipeline. Combined with `--fail-under <n>`, the process exits `1` if the score is below `n` (and `0` otherwise), so you can fail a CI job on a regression:
+`--ci` disables color and prompts. With `--fail-under`, the command exits 1 when the score is below the threshold. See [CI integration](ci-integration.md) for complete workflows.
+
+### Tracking regressions with `--compare`
+
+`--ci` appends one line to `.setupdoctor-history.jsonl` on every run. `--compare` reads that file and reports the change since the last recorded run:
 
 ```bash
-$ npx setup-doctor --ci --fail-under 90; echo "exit: $?"
-# ... full report ...
-exit: 1
+npx setup-doctor doctor --ci --compare
 ```
 
-See [`ci-integration.md`](ci-integration.md) for a full GitHub Actions example.
+With `--ci`, a drop exits 1, even if the score is still above `--fail-under`. Without `--ci`, `--compare` only prints the change and writes nothing. With no previous run, it prints `Score history: no previous run recorded yet.` and exits 0.
 
-## `--compare`: fail on any regression, not just a fixed threshold
-
-`--ci` alone appends one line (timestamp, score, band, agents detected, rules version) to a local `.setupdoctor-history.jsonl` on every run. `--compare` reads it back and prints the change since the last recorded run; combined with `--ci`, it also exits `1` on any drop, even one `--fail-under`'s fixed number wouldn't have caught:
-
-```bash
-$ npx setup-doctor doctor --ci --compare; echo "exit: $?"
-Setup Doctor  score 74/100  (Needs work) (capped: a critical finding limits the score to 74)   rules v1.0.0
-...
-Score history: 100 -> 74 (-26) since 2026-09-29T12:41:06.783Z
-exit: 1
-```
-
-`--compare` alone (no `--ci`) just prints the delta and never affects the exit code or appends a new entry, useful for checking locally how your score has moved since the last CI run without writing anything. With no prior history yet, it prints `Score history: no previous run recorded yet.` and exits `0`. `--format json` gets the same information as a `compare` field (`null` with no prior history) instead of the printed line. See [`ci-integration.md`](ci-integration.md) for why this needs a persisted cache in most CI setups (runners are ephemeral by default) and a real worked example.
-
-## `--out` and `--yes`
-
-`--out <dir>` is required for `--format html` (and optional for `--format json`, which otherwise prints to stdout). `setup-doctor` refuses to overwrite an existing output file unless you pass `--yes`:
-
-```bash
-$ npx setup-doctor --format html --out ./report
-setup-doctor doctor: ./report/setup-doctor-report.html already exists; pass --yes to overwrite
-$ npx setup-doctor --format html --out ./report --yes
-Wrote ./report/setup-doctor-report.html
-```
+Most CI runners are ephemeral, so the history file must be persisted between runs. See [CI integration](ci-integration.md#track-score-history-and-gate-on-regressions).
 
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Success (including "nothing to check" and, without `--ci --fail-under`/`--ci --compare`, any score) |
-| 1 | Score below `--fail-under` with `--ci`, or a real regression with `--ci --compare` |
-| 2 | Usage error: unknown flag, bad `.setupdoctorrc` |
-| 3 | Data unreadable and nothing usable was parsed |
-| 4 | Internal error (please file an issue) |
+| 0 | Success. |
+| 1 | `--ci` with `--fail-under` and the score is below the threshold, or `--ci --compare` detected a drop. |
+| 2 | Usage or configuration error: an unknown or invalid option, or an invalid `.setupdoctorrc`. |
+| 4 | Internal error. Please open an issue with the output. |
 
-## Other flags
+## Explaining rules
 
-| Flag | What it does |
-| --- | --- |
-| `--config <path>` | Load a specific config file instead of `<path>/.setupdoctorrc`. See [`config.md`](config.md). |
-| `--no-color` | Disable ANSI color. Also off automatically for `--ci`, `NO_COLOR`, or piped/non-TTY output. |
-| `--fix`, `--dry-run`, `--allow-dirty` | Propose and apply safe, mechanical fixes. See [`fix-mode.md`](fix-mode.md). |
-
-Run `npx setup-doctor rules` to list every rule with its category and severity, and `npx setup-doctor explain <RULE_ID>` for the full reasoning and fix behind any one of them:
+```bash
+npx setup-doctor rules             # list every rule, its category, severity and whether it is enabled
+npx setup-doctor explain MCP-01    # the reasoning and fix for one rule
+```
 
 ```
-$ npx setup-doctor explain MCP-01
 MCP-01  Config problem or command not found
 Category: mcp   Severity: high   Heuristic: no
 
@@ -157,3 +163,11 @@ Why it matters:
 Fix:
   Fix the config syntax, install the command, or remove the server entry.
 ```
+
+## Comparing two reports
+
+```bash
+npx setup-doctor diff before.json after.json
+```
+
+Explains how the score changed between two saved JSON reports: the score movement, new findings, resolved findings, and how many were unchanged. Findings are matched by rule, file and message, so moving a problem to a different line does not count as a change. A warning appears when the rule set changed between the two reports.

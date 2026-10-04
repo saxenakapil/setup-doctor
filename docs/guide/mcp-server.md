@@ -1,24 +1,55 @@
-# `mcp`: use Doctor and Wrapped from an MCP client
+# MCP server
+
+`setup-doctor mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio. It exposes two read-only tools, so an MCP client can audit your setup or summarize your usage.
 
 ```bash
 npx setup-doctor mcp
 ```
 
-Starts an [MCP](https://modelcontextprotocol.io) server over stdio, exposing two read-only tools:
+The server is listed in the [official MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.saxenakapil/setup-doctor`.
 
-- **`doctor`**: same as `doctor --format json`, arguments `path`, `agent`, `scope`, `minSeverity` (all optional, same meaning as the equivalent CLI flags).
-- **`wrapped`**: same as `wrapped --format json`, arguments `agent`, `period`, `tz`, `anonymize` (all optional, same meaning as the equivalent CLI flags).
+## Tools
 
-Both tools are marked `readOnlyHint: true` and return the exact same JSON shape the CLI's `--format json` already produces (see [`doctor.md`](doctor.md) and [`wrapped.md`](wrapped.md) for the full field reference), as text content. Nothing about this mode writes to disk, calls the network, or executes anything: it is the same read-only engine the CLI already uses, wrapped in an MCP tool interface instead of argument parsing and terminal output.
+### `doctor`
 
-**There is no `--fix` equivalent.** Fix mode's CLI safety model (a diff preview, a backup, and an explicit `--yes` confirmation with no TTY prompt available) has no equivalent safe "ask before writing" channel over MCP, so this mode stays strictly read-only by design, the same way every other command already is without `--fix`.
+Audits the agent setup. It returns the same JSON as `doctor --format json`.
 
-## Adding it to Claude Desktop
+| Argument | Type | Description |
+| --- | --- | --- |
+| `path` | string | Project directory to audit. Defaults to the current directory. |
+| `agent` | `claude`, `codex`, `cursor`, `copilot`, `all` | Agent to check. Defaults to auto-detection. |
+| `scope` | `project`, `global`, `all` | Locations to check. Defaults to `all`. |
+| `minSeverity` | `low`, `medium`, `high`, `critical` | Hide findings below this level. The score is not affected. |
 
-Edit Claude Desktop's own MCP config file (Settings -> Developer -> Edit Config):
+### `wrapped`
 
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+Summarizes local usage. It returns the same JSON as `wrapped --format json`.
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `agent` | `claude`, `codex`, `copilot`, `cursor` | Agent to summarize. Defaults to `claude`. |
+| `period` | string | `7d`, `30d`, `ytd`, `all` or `YYYY-MM-DD:YYYY-MM-DD`. Defaults to `30d`. |
+| `tz` | string | IANA time zone for day boundaries. Defaults to the local time zone. |
+| `anonymize` | boolean | Hide project names. Defaults to `false`. |
+
+Both tools are annotated `readOnlyHint: true`.
+
+## Guarantees
+
+- The server never writes files, makes network requests, or runs any command found in your configuration.
+- There is no equivalent of `--fix`. Fix mode needs a diff preview and an explicit confirmation, and an MCP tool call has no safe way to ask for one.
+- Output is the same as the CLI's JSON, including redaction. Secret values appear as `[REDACTED]`.
+
+## Adding the server to Claude Desktop
+
+Open the Claude Desktop configuration file:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+You can also open it from Claude Desktop under Settings, then Developer, then Edit Config.
+
+Add the server:
 
 ```json
 {
@@ -31,34 +62,35 @@ Edit Claude Desktop's own MCP config file (Settings -> Developer -> Edit Config)
 }
 ```
 
-Restart Claude Desktop. Any other MCP client that can spawn a local stdio server works the same way; the `command`/`args` shape above is not Claude-Desktop-specific.
+Restart Claude Desktop. Any MCP client that can start a local stdio server works with the same `command` and `args`.
 
-## A real example
+To pin a version, replace `setup-doctor@latest` with an exact version, such as `setup-doctor@0.3.2`. A pinned version will not change without your action.
 
-Calling `doctor` with `{ "agent": "claude", "scope": "project" }` against a project with one broken hook returns exactly what `doctor --format json` would print locally:
+## Example response
+
+Calling `doctor` with `{ "agent": "claude", "scope": "project" }` against a project with a broken hook returns:
 
 ```json
 {
   "schemaVersion": 1,
-  "toolVersion": "0.1.0",
-  "rulesVersion": "1.1.0",
+  "toolVersion": "0.3.2",
+  "rulesVersion": "1.2.0",
   "agentsDetected": ["claude"],
   "score": 85,
   "band": "Good",
-  "categories": [ /* ... */ ],
   "findings": [
     {
       "ruleId": "SET-02",
       "severity": "high",
-      "message": "Hook ... points to a script that does not exist",
-      "fix": "..."
+      "message": "Hook PreToolUse in .claude/settings.json points to scripts/missing.sh which is missing or not executable",
+      "fix": "Correct the path, make the script executable, or remove the hook."
     }
   ]
 }
 ```
 
-Verified end to end with a real MCP client (the SDK's own `Client` + `StdioClientTransport`, not a mock): connected, listed both tools, called `doctor` against a real broken-hook fixture and got real findings back, and called `wrapped` against this machine's own real Claude Code session history and got real metrics back. Also verified against a genuinely `npm install`-ed tarball (not just this repo's own `node_modules`), since `@modelcontextprotocol/sdk` and `zod` are real runtime dependencies that need to actually resolve for a real user, not just during development.
+Paths are shortened in this example. The response also includes `categories`, `suppressed`, `skipped` and `warnings`. See [doctor](doctor.md#json) for the full field list.
 
-## Cursor's Node version requirement still applies
+## Cursor requires Node 22.5 or later
 
-`wrapped` with `agent: "cursor"` needs Node 22.5 or later on the machine running the MCP server (it reads Cursor's local database via the built-in `node:sqlite` module); on an older Node, the tool returns the same explanatory text the CLI prints instead of a raw error.
+`wrapped` with `"agent": "cursor"` reads Cursor's database through Node's built-in `node:sqlite` module, which needs Node 22.5 or later on the machine running the server. On an older version, the tool returns a message that names your Node version.

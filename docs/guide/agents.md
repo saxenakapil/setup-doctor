@@ -1,31 +1,53 @@
-# Supported agents
+# Agents
+
+`setup-doctor` supports four agents and provides partial support for others. This page lists what each agent reads and which checks apply.
+
+## Support matrix
 
 | Agent | Doctor | Wrapped |
 | --- | --- | --- |
-| Claude Code | Full (all 30 rules) | Supported |
-| Codex | Instructions + MCP servers only | Supported |
-| GitHub Copilot CLI | Instructions, skills, MCP servers, settings/hooks (no plugin concept) | Supported |
-| Cursor | Instructions + MCP servers + project skills | Supported on Node 22.5+ |
+| Claude Code | Full: all 30 rules | Yes |
+| Codex | Instructions and MCP servers | Yes |
+| GitHub Copilot CLI | Instructions, skills, MCP servers, settings and hooks | Yes |
+| Cursor | Instructions, MCP servers and project skills | Yes, requires Node 22.5 or later |
+| Other agents (`.windsurfrules`, `.clinerules`) | Instruction rules only | No |
 
-Subagents, plugins and settings/hooks checks are Claude Code/Copilot-specific; those categories are excluded from the score for Codex/Cursor-only setups (shown as `n/a` in the category breakdown), not counted against you as if they were failing. Skills checks apply to Claude Code, Copilot CLI and Cursor; they're excluded only for Codex, which has no skills concept at all.
+Categories that do not apply to an agent are excluded from its score. For example, Codex has no plugin concept, so Plugins shows `n/a` and is not counted as a failure. Skills apply to Claude Code, Copilot CLI and Cursor. Codex has no skills concept.
 
 ## What each agent reads
 
-**Claude Code**: `CLAUDE.md` / `.claude/CLAUDE.md` / `CLAUDE.local.md` (project), `~/.claude/CLAUDE.md` (global), nested `CLAUDE.md` files in subdirectories, `@import` references resolved; `.claude/skills/*/SKILL.md` and `.claude/agents/*.md` (project and global); `.mcp.json` (project, `mcpServers` key) and `~/.claude.json` (global); `.claude/settings.json` and `.claude/settings.local.json` for hooks and permissions.
+### Claude Code
 
-**GitHub Copilot CLI**: `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md` (project); `.github/skills`, plus `.claude/skills` and `.agents/skills`, which Copilot CLI is documented to read directly (project), `~/.copilot/skills` and `~/.agents/skills` (personal); `.vscode/mcp.json` (`servers` key), the portable `.mcp.json` (`mcpServers` key, same file Claude Code reads), and `~/.copilot/mcp-config.json`; hooks from **two separate sources**, combined: the shared `.claude/settings.json`/`settings.local.json`, and Copilot's own native `.github/hooks/*.json` (project) / `~/.copilot/hooks/*.json` (personal); for Wrapped, `~/.copilot/session-state/<sessionId>/events.jsonl`, one JSONL file per session (each `copilot --resume` continues appending to the same file, rather than starting a new one).
+- **Instructions:** `CLAUDE.md`, `.claude/CLAUDE.md` and `CLAUDE.local.md` in the project; `~/.claude/CLAUDE.md` globally; nested `CLAUDE.md` files in subdirectories. `@import` references are followed.
+- **Skills and subagents:** `.claude/skills/*/SKILL.md` and `.claude/agents/*.md`, in the project and globally.
+- **MCP servers:** `.mcp.json` (project) and `~/.claude.json` (global).
+- **Settings and hooks:** `.claude/settings.json` and `.claude/settings.local.json`.
+- **Wrapped:** `~/.claude/projects/**/*.jsonl`.
 
-**Codex**: `AGENTS.md` (project); `~/.codex/config.toml`'s `[mcp_servers.*]` tables (global); for Wrapped, `~/.codex/sessions/<year>/<month>/<day>/rollout-*.jsonl`, created lazily the first time a real session runs (a fresh install, or one that has only used the separate SQLite thread-history index, has no `sessions/` directory at all yet).
+### GitHub Copilot CLI
 
-**Cursor**: `.cursorrules` and `.cursor/rules/*.mdc` / `*.md` (project); `.cursor/mcp.json` (project) and `~/.cursor/mcp.json` (global); `.cursor/skills/*/SKILL.md` (project only, same `SKILL.md` shape as Claude Code); for Wrapped, `state.vscdb` (SQLite) under Cursor's own per-OS data directory: `cursorDiskKV`'s `composerData:*`/`bubbleId:*` keys hold real conversation and per-message token counts, cross-referenced against each workspace's own `state.vscdb` for the real project path. Reading it uses the built-in `node:sqlite` module, available from Node 22.5 onward; on an older Node, `wrapped --agent cursor` prints a clear message naming your Node version instead of running.
+- **Instructions:** `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`.
+- **Skills:** `.github/skills`, plus `.claude/skills` and `.agents/skills`, which Copilot CLI reads directly. Personal skills are read from `~/.copilot/skills` and `~/.agents/skills`.
+- **MCP servers:** `.vscode/mcp.json` (`servers` key), the portable `.mcp.json` (`mcpServers` key), and `~/.copilot/mcp-config.json`.
+- **Settings and hooks:** the shared `.claude/settings.json` and `.claude/settings.local.json`, and Copilot's own `.github/hooks/*.json` (project) or `~/.copilot/hooks/*.json` (personal). Both are combined.
+- **Wrapped:** `~/.copilot/session-state/<sessionId>/events.jsonl`. Resuming a session appends to the same file.
 
-Cursor's personal/global skills are not read: they live in Cursor's cloud-synced "user Agent Store" at a path that isn't fixed on disk, not at `~/.cursor/skills/` (that path is only a fallback Cursor itself uses when no store is mounted). Separately, `~/.cursor/skills-cursor/` holds Cursor's own built-in skills, shipped with the IDE, and is deliberately never scanned as if it were user content.
+### Codex
 
-Cursor's instructions and MCP Doctor sources were not verified against a real local install when its adapter was first built (no real config existed on the build machine); they follow the documented shape directly. Cursor's project skills support was added later and verified against a real, actively used local install (see [`docs/notes.md`](../notes.md)). Claude Code's, Codex's and Copilot's Doctor sources, and all four agents' Wrapped support, were verified against real installs -- Codex's and Cursor's Wrapped support in particular each required installing or querying the real local tool specifically to check, after earlier checks had wrongly concluded Wrapped support wasn't schedulable for either (Codex's `sessions/` directory turned out to be created lazily; Cursor's real, queryable schema turned out to be more tractable than third-party reverse-engineering writeups suggested). Copilot's Wrapped support was the one case where the real format needed no reverse-engineering at all: the real, on-disk file matched what its own adapter's code comments had already described from documentation alone. See [`docs/notes.md`](../notes.md) for the full history of what was and was not verified.
+- **Instructions:** `AGENTS.md` in the project.
+- **MCP servers:** `[mcp_servers.*]` tables in `~/.codex/config.toml`.
+- **Wrapped:** `~/.codex/sessions/<year>/<month>/<day>/rollout-*.jsonl`. Codex creates this directory the first time a session runs.
 
-## When two agents share a file
+### Cursor
 
-Copilot CLI is documented to read several of Claude Code's own files directly, not a separate format of its own: `.claude/skills`, `.claude/settings.json`/`settings.local.json`, and the portable-format `.mcp.json`. If a project is detected as both agents (the default `--agent all` checks every agent), a real problem in one of those shared files is found and scored **once**, not once per agent, and the report tells you which other agent it also affects:
+- **Instructions:** `.cursorrules` and `.cursor/rules/*.mdc` or `*.md` in the project.
+- **MCP servers:** `.cursor/mcp.json` in the project and `~/.cursor/mcp.json` globally.
+- **Skills:** `.cursor/skills/*/SKILL.md`, project scope only. Cursor's personal skills are stored in a cloud-synced store with no fixed path on disk, so they are not read. Cursor's built-in skills in `~/.cursor/skills-cursor/` are never scanned.
+- **Wrapped:** Cursor's `state.vscdb` SQLite database in its per-OS data directory. Reading it requires Node 22.5 or later.
+
+## Shared files
+
+Copilot CLI reads several of Claude Code's files directly: `.claude/skills`, `.claude/settings.json`, `.claude/settings.local.json` and `.mcp.json`. When a project uses both agents, a problem in one of these files is reported once, not once per agent. The report notes the other agent it also affects:
 
 ```
 HIGH  MCP-01  MCP server notion uses command notion-mcp-server which was not found on PATH
@@ -33,21 +55,30 @@ HIGH  MCP-01  MCP server notion uses command notion-mcp-server which was not fou
       Also affects: Copilot (same file)
 ```
 
-This only appears for findings that are genuinely about the file's content, not for anything session-dependent. For example, "this skill was not used in the last 30 days" is a claim about Claude Code's own session log specifically; even if the skill file is shared with Copilot, that claim is never labeled as also applying to Copilot, since there is no Copilot usage data to check it against.
+Session-based findings are not shared. A finding such as "this skill was not used in the last 30 days" depends on Claude Code session logs, so it is never attributed to Copilot.
 
-If you run `--agent copilot` alone (not the default `--agent all`) on a project that only uses these shared, portable file locations, Copilot's adapter still reads them directly: it does not depend on Claude Code also being detected.
+If you run `--agent copilot` alone on a project that uses only these shared locations, Copilot still reads them directly. It does not require Claude Code to be detected as well.
 
-## `(possible)` findings
+## Possible findings
 
-A few rules (currently `SKL-06` and `MCP-05`, both Claude Code-only) check whether a skill or MCP server was actually used in your last 30 days of session logs. These are marked `possible` because the underlying signal is a heuristic, not a certainty:
+`SKL-06` and `MCP-05` check whether a skill or MCP server was used in your recent session history. They are Claude Code rules and are marked `(possible)` because usage is inferred from logs:
 
 ```
 LOW   MCP-05  MCP server linear was not used in the last 30 days (possible)
       Fix: Remove or disable the server if you no longer need it.
 ```
 
-Two things are true about `possible` findings that are not true of ordinary ones: they need at least 14 days of session log coverage to fire at all (too little data and the rule stays silent rather than guessing), and their contribution to the score is capped at half of what an equivalent non-`possible` finding would cost, since a heuristic guess should never dominate the score the way a certain fact does.
+Two things distinguish possible findings:
 
-## Requesting a new agent
+- They require at least 14 days of session log coverage. With less history, the rule does not fire.
+- Each one costs half as much score as a certain finding of the same severity.
 
-The `Adapter` interface (`src/adapters/`) is deliberately generic: adding a new agent is a new file implementing seven methods (`detect`, `readInstructions`, `readSkills`, `readMcp`, `readPlugins`, `readSettings`, `readSessions`), not a change to core scoring or rule logic. Open an issue if there's an agent you'd like to see supported; each one needs the same kind of research Copilot's adapter did (real config-shape verification, and a check for the same kind of file-sharing overlap Copilot turned out to have with Claude Code) before assuming it is a clean, disjoint addition.
+## Other agents
+
+`.windsurfrules` and `.clinerules` in the project root are read as instruction files, and the instruction rules apply to them. The report labels them as "Other agent". Their presence is the only detection signal, and they cannot be selected with `--agent`.
+
+`AGENTS.md` is read as a Codex file and is not reported a second time.
+
+## Requesting an agent
+
+Each agent needs its own reader, which must match the real file layout and any file shared with another agent. Open an issue describing the agent and where its configuration lives.

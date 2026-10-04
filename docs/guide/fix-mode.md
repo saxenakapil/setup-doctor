@@ -1,28 +1,29 @@
 # Fix mode
 
-`setup-doctor` is read-only everywhere except `--fix`. Even then, it never edits a file without showing you the diff first, and never applies anything without your explicit confirmation.
+`doctor --fix` applies safe, mechanical fixes to your configuration. It is the only `setup-doctor` command that edits existing files. It always shows a diff first, makes a backup, and requires confirmation before writing.
 
-## The safe set
+## Which findings can be fixed
 
-Not every finding is fixable. Two rules currently qualify:
+Only findings with an unambiguous, mechanical fix qualify. Currently there are two:
 
-- **INS-03**: an exact duplicate line repeated within one instruction file.
-- **SET-02**: a hook that points to a missing or non-executable script. It cannot run either way, so removing it changes no real behavior; only offered for the shared `.claude/settings.json`/`settings.local.json` shape, not Copilot CLI's own native `.github/hooks/*.json` format.
+| Rule | Fix |
+| --- | --- |
+| `INS-03` | Removes an exact duplicate line repeated within one instruction file. |
+| `SET-02` | Removes a hook that points to a missing or non-executable script, from the shared `.claude/settings.json` or `settings.local.json`. |
 
-Everything else needs a human judgment call (what MCP command should this actually be? is this permission rule intentional? which current model should replace a retired one?), so `setup-doctor` will tell you what is wrong and how to fix it, but will not guess for you.
+Every other finding requires a decision a tool cannot make for you. Examples include which MCP command should replace a broken one, whether a permission rule is intentional, and which model should replace a retired one. Those findings include a fix description, but `--fix` does not apply them.
 
-## Preview a fix: `--dry-run`
+## Preview changes
 
-Starting from a `CLAUDE.md` with one duplicated line:
-
-```
-Always run the tests before committing.
-Use 2 space indentation.
-Always run the tests before committing.
-```
+`--dry-run` shows every change and writes nothing:
 
 ```bash
-$ npx setup-doctor --fix --dry-run
+npx setup-doctor doctor --fix --dry-run
+```
+
+For a `CLAUDE.md` that contains a duplicated line:
+
+```
 1 safe fix available:
 
 INS-03  2 rules repeat within CLAUDE.md
@@ -37,14 +38,15 @@ INS-03  2 rules repeat within CLAUDE.md
 Dry run: no files changed.
 ```
 
-`--dry-run` never touches disk. It exists so you can review exactly what would change before committing to it.
+## Apply changes
 
-## Apply a fix
-
-Drop `--dry-run` and add `--yes` (fix mode, like every other output-writing command, refuses to run non-interactively without it):
+Applying requires `--yes`. Without it, the command refuses to write:
 
 ```bash
-$ npx setup-doctor --fix --yes
+npx setup-doctor doctor --fix --yes
+```
+
+```
 1 safe fix available:
 
 INS-03  2 rules repeat within CLAUDE.md
@@ -56,75 +58,50 @@ INS-03  2 rules repeat within CLAUDE.md
 -Always run the tests before committing.
  
 
-Backed up 1 file(s) to .setupdoctor-backup/2026-09-29T10-36-49-285Z
+Backed up 1 file(s) to .setupdoctor-backup/2026-10-04T03-08-25-152Z
 
 Score before: 95   Score after: 100
 Changes made:
   INS-03  CLAUDE.md: 2 rules repeat within CLAUDE.md
 ```
 
-Three things happen, in order, every time:
+Each run follows the same sequence:
 
-1. **A backup first.** Every file a fix would touch is copied to `.setupdoctor-backup/<timestamp>/<scope>/<path>` before anything is written. This directory is already in `.gitignore` and is excluded from `setup-doctor`'s own file discovery, so a backup copy of a broken `CLAUDE.md` can never itself become a new finding.
-2. **The diff, again**, so you have a record of exactly what changed even after the fact.
-3. **Score before and after**, and a summary of what changed, so you can confirm the fix actually helped.
+1. **Backup.** Every file a fix will change is copied to `.setupdoctor-backup/<timestamp>/` before anything is written. The backup directory is excluded from discovery, so a backup can never produce a finding.
+2. **Diff.** The change is shown again, so you have a record.
+3. **Score.** The score before and after is reported.
 
-## `--allow-dirty`: project-scope files and uncommitted changes
+## Uncommitted changes
 
-For a project-scope file, fix mode checks whether the project looks like it might have uncommitted git changes (specifically: whether a `.git` path exists at all: `setup-doctor` never runs `git` itself, so this is a conservative "might be dirty" check, not a real `git status`). If so, it refuses to touch the file unless you pass `--allow-dirty`:
+Project files can only be changed when the project does not appear to have uncommitted git changes. The check is conservative: it looks for a `.git` directory and does not run `git`.
 
-```bash
-$ npx setup-doctor --fix --yes
+If the check fails, the fix is skipped and reported:
+
+```
 No safe fixes available.
 
 Findings that could not be auto-fixed:
   INS-03 CLAUDE.md: project may have uncommitted git changes; pass --allow-dirty
-$ npx setup-doctor --fix --yes --allow-dirty
-# ... applies normally
 ```
 
-Global-scope files (your per-user config, outside any git repo) are not affected by this check.
-
-## SET-02: removing a broken hook
+Pass `--allow-dirty` to proceed anyway, after reviewing the diff:
 
 ```bash
-$ npx setup-doctor --fix --dry-run
-1 safe fix available:
-
-SET-02  Hook PreToolUse in .claude/settings.json points to /path/to/project/scripts/missing.sh which is missing or not executable
---- a/.claude/settings.json
-+++ b/.claude/settings.json
-@@ -1,16 +1,7 @@
- {
-   "hooks": {
-     "PreToolUse": [
-       {
--        "matcher": "Bash",
--        "hooks": [
--          {
--            "type": "command",
--            "command": "./scripts/missing.sh"
--          }
--        ]
--      },
--      {
-         "matcher": "Edit",
-         "hooks": [
-           {
-             "type": "command",
-             "command": "npx prettier --write ."
-           }
-         ]
-       }
-     ]
-   }
- }
-
-Dry run: no files changed.
+npx setup-doctor doctor --fix --yes --allow-dirty
 ```
 
-Unlike INS-03, this is a real JSON edit, not a text-level line deletion: the file is parsed, the one broken hook is removed structurally, and the result is re-serialized, so a working sibling hook in the same file (`Edit` above) is left untouched and the file stays valid JSON. If your `settings.json`'s formatting can't be reproduced exactly on re-serialization (unusual indentation, for example), the fix is skipped rather than risk silently reformatting parts of the file you never asked to change.
+Files outside a project, such as your user-level configuration, are not subject to this check.
 
-## Why the safe set is small
+## Recovering from a fix
 
-Every rule is checked against the same bar INS-03 and SET-02 both had to clear: the fix must be genuinely mechanical, with no judgment call about *what* to put in place of the problem, only removing or normalizing something already broken. Most findings fail that bar (a wrong MCP command needs a human to say what the right one is; a too-short skill description needs a human to write more; a permission rule might be intentional even if it looks broad), so `setup-doctor` explains the problem and leaves the decision to you rather than guessing.
+Each backup keeps the file's relative path under a folder named for its scope, for example `.setupdoctor-backup/<timestamp>/project/CLAUDE.md`. To restore, copy the file back to its original location.
+
+## How SET-02 is fixed
+
+Unlike `INS-03`, which removes a line of text, `SET-02` edits the JSON structurally. The file is parsed, the broken hook is removed, and the file is written back. Other hooks in the same file are unchanged, and the file stays valid JSON.
+
+If the file's formatting cannot be reproduced exactly after re-serializing, for example because of unusual indentation, the fix is skipped. The tool does not reformat parts of a file you did not ask it to change.
+
+## Scope
+
+`--fix` respects the `--scope` and `--agent` you select. Fixes for disabled rules are not offered; see [configuration](config.md).
