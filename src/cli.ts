@@ -35,6 +35,11 @@ const defaultIo: Io = {
 };
 
 const COMMANDS = new Set(['doctor', 'wrapped', 'badge', 'rules', 'explain', 'diff', 'mcp']);
+// Flags accepted when no command is named, so `setup-doctor --ci` runs the audit.
+const DEFAULT_COMMAND_FLAGS = new Set([
+  'format', 'agent', 'scope', 'theme', 'min-severity', 'out', 'yes', 'config', 'endpoint', 'no-color',
+  'ci', 'fail-under', 'compare', 'fix', 'dry-run', 'allow-dirty',
+]);
 const FORMATS = new Set(['terminal', 'json', 'html']);
 const AGENT_VALUES = new Set(['claude', 'codex', 'cursor', 'copilot', 'all']);
 const AGENT_LABELS: Record<string, string> = {
@@ -50,42 +55,52 @@ const HELP = `setup-doctor ${VERSION}
 Score and improve your AI coding agent setup. Local-only, open source.
 
 Usage:
-  setup-doctor [doctor] [path]     Audit the setup and print the score
-  setup-doctor wrapped             Usage summary and shareable card
-  setup-doctor badge               Write README badge files
-  setup-doctor rules               List all rules
-  setup-doctor explain <RULE_ID>   Explain one rule
-  setup-doctor diff <before.json> <after.json>   Explain how the score changed between two saved reports (doctor --format json)
-  setup-doctor mcp                 Start an MCP server (doctor and wrapped as read-only tools, stdio)
+  setup-doctor [path] [options]                  Audit a project (same as: setup-doctor doctor)
+  setup-doctor doctor [path] [options]           Audit the setup and print a 0-100 score
+  setup-doctor wrapped [options]                 Summarize local usage and write a shareable card
+  setup-doctor badge [path] [options]            Write a README score badge
+  setup-doctor rules [options]                   List every rule and whether it is enabled
+  setup-doctor explain <RULE_ID>                 Explain one rule and how to fix it
+  setup-doctor diff <before.json> <after.json>   Explain the score change between two saved reports
+  setup-doctor mcp                               Start an MCP server (read-only tools over stdio)
 
-Options:
-  --help       Show this help
-  --version    Show the version
-  --format     terminal | json | html (doctor)
-  --agent      claude | codex | cursor | copilot | all
-  --scope      project | global | all
-  --theme      playful | technical | mix (doctor --format html, badge)
-  --min-severity  low | medium | high | critical (doctor; hides findings, score is unaffected)
-  --out <path> Output folder (doctor --format html/json with --out, badge)
-  --yes        Overwrite existing output files without asking
-  --config <path>  Configuration file (default: <path>/.setupdoctorrc) (doctor, badge, rules, wrapped)
-  --endpoint   Also write the shields.io endpoint JSON (badge)
-  --no-color   Disable ANSI color (also off for --ci, NO_COLOR, or a non-TTY output)
-  --ci         No prompts, stable output (doctor)
-  --fail-under <n>   With --ci, exit 1 if the score is below n (doctor)
-  --compare    Print the score change since the last --ci run; with --ci, also exit 1 on a drop (doctor)
-  --period     7d | 30d | ytd | all | YYYY-MM-DD:YYYY-MM-DD (wrapped, default 30d)
-  --tz         IANA time zone (wrapped, default local)
-  --anonymize  Hide project names everywhere, including the local report (wrapped)
-  --no-cost    Remove cost figures (wrapped)
-  --show-projects  Show project names on the card, default hidden (wrapped)
-  --trend      Show the change vs the previous period of the same length (wrapped)
-  --fix        Propose safe, mechanical fixes for findings that support one (doctor)
-  --dry-run    With --fix, show diffs and change nothing (doctor)
-  --allow-dirty  With --fix, allow editing files in a project with uncommitted git changes (doctor)
+Doctor options:
+  --format terminal|json|html    Output format (default: terminal)
+  --agent claude|codex|cursor|copilot|all
+                                 Agent to check (default: every agent detected)
+  --scope project|global|all     Where to look (default: all)
+  --theme playful|technical|mix  Theme for --format html and badge
+  --min-severity low|medium|high|critical
+                                 Hide lower findings; the score is not affected
+  --ci                           No prompts, no color, stable output
+  --fail-under <n>               With --ci, exit 1 if the score is below n
+  --compare                      Show the change since the last --ci run; with --ci, exit 1 on a drop
+  --fix                          Apply safe, mechanical fixes (use --dry-run to preview)
+  --dry-run                      With --fix, show the changes without writing
+  --allow-dirty                  With --fix, allow edits when the project has uncommitted changes
 
-Status: doctor, badge, wrapped (Claude Code, Codex, Copilot, Cursor with Node 22.5+) and doctor --fix are implemented.
-See docs/scope.md for the full plan.`;
+Wrapped options:
+  --agent claude|codex|cursor|copilot
+                                 Agent to summarize (default: claude)
+  --period 7d|30d|ytd|all|YYYY-MM-DD:YYYY-MM-DD
+                                 Time window (default: 30d)
+  --tz <zone>                    IANA time zone for day boundaries (default: local)
+  --anonymize                    Hide project names everywhere
+  --show-projects                Show project names on the card
+  --no-cost                      Remove cost figures
+  --trend                        Compare with the previous period of the same length
+  --theme playful|technical|mix  Card theme (default: technical)
+
+Common options:
+  --format json|html --out <dir> Write output files to a directory
+  --yes                          Overwrite existing output files without asking
+  --config <path>                Use this configuration file instead of .setupdoctorrc
+  --endpoint                     Badge: also write the shields.io endpoint JSON
+  --no-color                     Disable color output
+  --help                         Show this help
+  --version                      Show the version
+
+See the documentation at https://github.com/saxenakapil/setup-doctor#readme`;
 
 function parseArgsAfterCommand(rest: string[]): { flags: Record<string, string | boolean>; positionals: string[] } {
   const flags: Record<string, string | boolean> = {};
@@ -759,8 +774,11 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
 
   const first = argv[0];
   if (first !== undefined && first.startsWith('-')) {
-    io.err(`Unknown option: ${first}\nRun setup-doctor --help for usage.`);
-    return 2;
+    const name = first.replace(/^--?/, '').split('=')[0] ?? '';
+    if (!DEFAULT_COMMAND_FLAGS.has(name)) {
+      io.err(`Unknown option: ${first}\nRun setup-doctor --help for usage.`);
+      return 2;
+    }
   }
 
   let command: string;
@@ -797,7 +815,7 @@ export async function main(argv: string[], io: Io = defaultIo, homeDirOverride?:
     return 0;
   }
 
-  io.err(`setup-doctor ${command}: not implemented yet. See docs/scope.md.`);
+  io.err(`setup-doctor ${command}: no handler for this command.`);
   return 4;
 }
 

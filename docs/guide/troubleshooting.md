@@ -1,21 +1,14 @@
 # Troubleshooting
 
-## "Unknown option" when a flag comes first
+## "Unknown option"
 
 ```
-$ npx setup-doctor --fix --dry-run
-Unknown option: --fix
+$ npx setup-doctor --bogus
+Unknown option: --bogus
 Run setup-doctor --help for usage.
 ```
 
-When the first argument is a flag, the command is not recognized. Name the command explicitly:
-
-```bash
-npx setup-doctor doctor --fix --dry-run
-npx setup-doctor doctor --ci --fail-under 75
-```
-
-Every example in these guides uses this form.
+The flag is not one `setup-doctor` accepts. Check the spelling against `setup-doctor --help`. Flags may come before or after the command: `npx setup-doctor --ci --fail-under 75` and `npx setup-doctor doctor --ci --fail-under 75` are equivalent.
 
 ## "Nothing to check"
 

@@ -288,6 +288,8 @@ Log assumptions, deviations and open items here while building. Keep entries sho
 
 - 2026-10-04: Post-v1: `setup-doctor diff` (`src/core/score-diff.ts`, `runDiffCommand` in `src/cli.ts`). The smaller of the two designs considered: it compares two saved JSON reports the user passes in, rather than extending the history file. That keeps the history format unchanged, so there is no migration. Finding identity is rule ID, file and message, deliberately without the line number. Reports are validated before use (rulesVersion, score, findings) and an invalid file exits 2 with the reason, never a stack trace. Known limit: messages can contain absolute paths that were in the original report; `diff` prints them as-is, so diff output is as sensitive as the reports it reads. A fuller version that also records findings in `.setupdoctorrc` history remains a possible follow-up.
 
+- 2026-10-04: Post-v1: flags before the command. `main()` rejected any leading flag, so `setup-doctor --ci --fail-under 75` failed even though the documentation showed it. The fix accepts a fixed set of doctor flags (`DEFAULT_COMMAND_FLAGS` in `src/cli.ts`) as the default command's options, and still rejects everything else. The set is explicit rather than "any flag" because the flag parser does not validate names, so accepting every leading flag would silently ignore typos. Help text is grouped by command and no longer mentions the internal project plan.
+
 ## Backlog / v1.1+ ideas
 
 Not in v1 scope. Recorded so Phase 1 to 8 decisions do not foreclose them.
