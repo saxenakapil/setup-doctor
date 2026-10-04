@@ -5,7 +5,7 @@ npx setup-doctor                # same as: npx setup-doctor doctor
 npx setup-doctor doctor [path]  # audit a specific project directory instead of the current one
 ```
 
-Runs 29 rules across 6 categories (instructions, skills, MCP servers, plugins, settings/hooks, freshness) against your agent's configuration, scores the result, and prints every finding with a specific fix. Read-only unless you pass `--fix` (see [`fix-mode.md`](fix-mode.md)).
+Runs 30 rules across 6 categories (instructions, skills, MCP servers, plugins, settings/hooks, freshness) against your agent's configuration, scores the result, and prints every finding with a specific fix. Read-only unless you pass `--fix` (see [`fix-mode.md`](fix-mode.md)).
 
 ## `--agent`: which agent to read
 

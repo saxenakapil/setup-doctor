@@ -2,7 +2,7 @@
   "mcpServers": {
     "linear": {
       "command": "npx",
-      "args": ["-y", "linear-mcp"]
+      "args": ["-y", "linear-mcp@1.0.0"]
     }
   }
 }

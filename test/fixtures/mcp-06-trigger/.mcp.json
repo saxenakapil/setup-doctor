@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"]
+    },
+    "latest-tag": {
+      "command": "npx",
+      "args": ["some-package@latest"]
+    },
+    "python-tool": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    }
+  }
+}

@@ -32,11 +32,11 @@ describe('runner', () => {
     });
     expect(report.agentsDetected).toEqual(['claude']);
     expect(report.toolVersion).toBeTruthy();
-    expect(report.rulesVersion).toBe('1.1.0');
+    expect(report.rulesVersion).toBe('1.2.0');
     // The fixture deliberately plants a hardcoded MCP secret and an
     // overly-broad global permission rule to exercise MCP-03 and SET-01.
     const ruleIds = report.findings.map((f) => f.ruleId).sort();
-    expect(ruleIds).toEqual(['MCP-03', 'SET-01']);
+    expect(ruleIds).toEqual(['MCP-03', 'MCP-06', 'SET-01']);
     expect(JSON.stringify(report.findings)).not.toContain('sk-ant-');
   });
 });

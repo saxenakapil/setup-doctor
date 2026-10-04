@@ -14,7 +14,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 
 ## What it does
 
-- **Doctor**: audits instruction files (`CLAUDE.md` / `.github/copilot-instructions.md` / `AGENTS.md` / `.cursorrules`), skills, subagents, MCP servers, plugins, settings and hooks. Runs 29 rules across 6 categories and returns a score, a band (Excellent / Good / Needs work / Poor), and a specific fix for every finding.
+- **Doctor**: audits instruction files (`CLAUDE.md` / `.github/copilot-instructions.md` / `AGENTS.md` / `.cursorrules`), skills, subagents, MCP servers, plugins, settings and hooks. Runs 30 rules across 6 categories and returns a score, a band (Excellent / Good / Needs work / Poor), and a specific fix for every finding.
 - **Wrapped**: summarizes your local session logs (Claude Code, Codex, GitHub Copilot CLI or Cursor) (sessions, active days, tokens, an API-equivalent cost estimate, streaks, busiest hour, a persona label) into a shareable card, in three visual themes and two sizes, with optional PNG export.
 - **Badge**: a static or live (shields.io endpoint) README badge showing your current score.
 - **HTML report**: a single self-contained, themed report file. No network requests, strict Content-Security-Policy, everything inlined.
@@ -24,7 +24,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 
 | Agent | Doctor | Wrapped |
 | --- | --- | --- |
-| [Claude Code](https://claude.com/claude-code) | Full (all 29 rules) | Supported |
+| [Claude Code](https://claude.com/claude-code) | Full (all 30 rules) | Supported |
 | [Codex](https://developers.openai.com/codex) | Instructions + MCP rules | Supported |
 | [GitHub Copilot CLI](https://docs.github.com/en/copilot) | Instructions, skills, MCP and settings/hooks rules | Supported |
 | [Cursor](https://cursor.com) | Instructions + MCP + project skills rules | Supported on Node 22.5+ (reads Cursor's local `state.vscdb` via the built-in `node:sqlite` module; verified against a real Cursor install, see [`docs/notes.md`](docs/notes.md)) |
@@ -41,7 +41,7 @@ npx setup-doctor doctor --format html   # self-contained HTML report
 npx setup-doctor doctor --fix --dry-run # preview safe, mechanical fixes (nothing is changed)
 npx setup-doctor badge                  # write a README badge
 npx setup-doctor wrapped --period 30d   # usage summary + shareable card
-npx setup-doctor rules                  # list all 29 rules
+npx setup-doctor rules                  # list all 30 rules
 npx setup-doctor explain INS-02         # explain what a rule checks and how to fix it
 npx setup-doctor mcp                    # start an MCP server (doctor + wrapped as read-only tools)
 ```

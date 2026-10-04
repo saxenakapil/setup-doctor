@@ -19,6 +19,7 @@ import { mcp02 } from './mcp-02.js';
 import { mcp03 } from './mcp-03.js';
 import { mcp04 } from './mcp-04.js';
 import { mcp05 } from './mcp-05.js';
+import { mcp06 } from './mcp-06.js';
 import { plg01 } from './plg-01.js';
 import { plg02 } from './plg-02.js';
 import { plg03 } from './plg-03.js';
@@ -51,6 +52,7 @@ export const ALL_RULES: Rule[] = [
   mcp03,
   mcp04,
   mcp05,
+  mcp06,
   plg01,
   plg02,
   plg03,
