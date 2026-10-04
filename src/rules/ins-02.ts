@@ -15,7 +15,7 @@ export const ins02: Rule = {
   id: 'INS-02',
   category: 'instructions',
   title: 'Instruction file too large',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   severityLabel: 'medium / high',
   why: 'Instruction files load on every turn, so size is a recurring cost and dilutes the important rules.',

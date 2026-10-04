@@ -5,7 +5,7 @@ export const ins08: Rule = {
   id: 'INS-08',
   category: 'instructions',
   title: 'Secret-like string in an instruction file',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   severityLabel: 'critical',
   why: 'Instruction files are often committed and are sent to the model provider on every turn.',

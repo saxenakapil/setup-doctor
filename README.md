@@ -28,6 +28,7 @@ This is real `npx setup-doctor` output (against a small demo project, not this r
 | [Codex](https://developers.openai.com/codex) | Instructions + MCP rules | Supported |
 | [GitHub Copilot CLI](https://docs.github.com/en/copilot) | Instructions, skills, MCP and settings/hooks rules | Supported |
 | [Cursor](https://cursor.com) | Instructions + MCP + project skills rules | Supported on Node 22.5+ (reads Cursor's local `state.vscdb` via the built-in `node:sqlite` module; verified against a real Cursor install, see [`docs/notes.md`](docs/notes.md)) |
+| Other agents (`.windsurfrules`, `.clinerules`) | Instruction-file rules only | Not supported |
 
 Subagents, plugins, settings and hooks checks are Claude Code/Copilot-specific; those categories are simply excluded from the score for Codex/Cursor-only setups rather than counted against you. Skills checks (`.claude/skills` for Claude Code/Copilot CLI, project-scope `.cursor/skills` for Cursor) apply to all three; Cursor's own global/personal skills live in a cloud-synced store rather than a fixed local path, so only its project-scope skills are read (see [`docs/notes.md`](docs/notes.md)). Copilot CLI is documented to read several of Claude Code's own files directly (`.claude/skills`, `.claude/settings.json`, and the "portable format" `.mcp.json`); when a project is detected as both agents, a real problem in one of those shared files is scored once, not once per agent, and the report notes which other agent it also affects.
 

@@ -31,7 +31,7 @@ export const ins03: Rule = {
   id: 'INS-03',
   category: 'instructions',
   title: 'Duplicate rules',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   fixable: true,
   severityLabel: 'medium',

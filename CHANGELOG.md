@@ -4,6 +4,7 @@ All notable changes are listed here. The format follows Keep a Changelog and the
 
 ## Unreleased
 
+- **Generic instruction files**: `.windsurfrules` and `.clinerules` at the project root are now audited with the instruction rules (INS-01 to INS-08 and FRS-01), auto-detected as "Other agent". Skills, MCP, settings and Wrapped are not modeled for these agents. `AGENTS.md` stays with the Codex adapter, so it is never reported twice.
 - **New rule MCP-06** (rules 1.2.0): flags an MCP server whose launcher (`npx`, `uvx`, `bunx`, `pipx`) runs a package without an exact version, such as `npx pkg` or `npx pkg@latest`. The Claude plugin directory reviewer raised the same risk for our own skills. Medium severity, not auto-fixable. See `docs/notes.md`.
 
 - **Wrapped cost projection**: for periods shorter than a month, the terminal report shows the monthly rate beside the estimated cost (for example `Est. cost* $390.20 (about $1672.28/month at this rate)`). Projections need at least 3 elapsed days, and are omitted for periods of a month or longer, where the total already shows the spend.

@@ -22,7 +22,7 @@ export const ins07: Rule = {
   id: 'INS-07',
   category: 'instructions',
   title: 'No build or test command documented',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   severityLabel: 'low',
   why: 'Agents work better when they know how to build and verify their changes.',

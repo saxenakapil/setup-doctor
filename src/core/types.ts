@@ -1,7 +1,9 @@
 // Shared types for the normalized model, adapters and rules.
 // See docs/scope.md section 9 (and 8.1 for the subagent and @import additions).
 
-export type Agent = 'claude' | 'codex' | 'cursor' | 'copilot';
+// 'generic' is auto-detected only (see adapters/generic.ts); it is never a
+// --agent value or a .setupdoctorrc value.
+export type Agent = 'claude' | 'codex' | 'cursor' | 'copilot' | 'generic';
 export type Scope = 'global' | 'project';
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
 export type Category = 'instructions' | 'skills' | 'mcp' | 'plugins' | 'settings' | 'freshness';

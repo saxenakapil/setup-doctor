@@ -28,7 +28,7 @@ export const ins04: Rule = {
   id: 'INS-04',
   category: 'instructions',
   title: 'Possible contradictions',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: true,
   severityLabel: 'medium',
   why: 'Conflicting rules make the agent behavior unpredictable.',

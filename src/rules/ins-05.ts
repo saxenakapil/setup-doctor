@@ -10,7 +10,7 @@ export const ins05: Rule = {
   id: 'INS-05',
   category: 'instructions',
   title: 'Vague rules',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   severityLabel: 'low',
   why: 'Rules the agent cannot act on add tokens without changing behavior.',

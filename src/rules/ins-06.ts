@@ -6,7 +6,7 @@ export const ins06: Rule = {
   id: 'INS-06',
   category: 'instructions',
   title: 'Stale references',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   severityLabel: 'medium',
   why: 'Stale references send the agent to files and commands that no longer exist.',

@@ -4,7 +4,7 @@ export const ins01: Rule = {
   id: 'INS-01',
   category: 'instructions',
   title: 'Instruction file present',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   severityLabel: 'low',
   why: 'An instruction file is the cheapest way to tell the agent your build commands, style and project layout.',

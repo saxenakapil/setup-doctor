@@ -5,12 +5,14 @@ import { claudeCodeAdapter } from './claude-code.js';
 import { codexAdapter } from './codex.js';
 import { cursorAdapter } from './cursor.js';
 import { copilotAdapter } from './copilot.js';
+import { genericAdapter } from './generic.js';
 
 const ADAPTERS: Partial<Record<Agent, Adapter>> = {
   claude: claudeCodeAdapter,
   codex: codexAdapter,
   cursor: cursorAdapter,
   copilot: copilotAdapter,
+  generic: genericAdapter,
 };
 
 export function getAdapter(agent: Agent): Adapter | undefined {

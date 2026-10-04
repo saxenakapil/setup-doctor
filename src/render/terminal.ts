@@ -11,6 +11,7 @@ const AGENT_LABELS: Record<Agent, string> = {
   codex: 'Codex',
   cursor: 'Cursor',
   copilot: 'Copilot',
+  generic: 'Other agent',
 };
 
 const CATEGORY_LABELS: Record<Category, string> = {

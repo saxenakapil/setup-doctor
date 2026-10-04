@@ -18,7 +18,7 @@ export const frs01: Rule = {
   id: 'FRS-01',
   category: 'freshness',
   title: 'Hard-pinned versions in instructions',
-  agents: ['claude', 'codex', 'cursor', 'copilot'],
+  agents: ['claude', 'codex', 'cursor', 'copilot', 'generic'],
   heuristic: false,
   severityLabel: 'low',
   why: 'Pinned versions go stale and then mislead the agent.',
